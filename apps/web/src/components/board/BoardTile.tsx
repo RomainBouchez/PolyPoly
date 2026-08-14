@@ -1,6 +1,6 @@
 import type { GameState, Tile } from '@polypoly/engine';
 import type { CSSProperties } from 'react';
-import { GROUP_COLORS, GROUP_FLAGS, type TileSide } from './tileLayout.js';
+import { GROUP_FLAG_SVG, type TileSide } from './tileLayout.js';
 
 interface BoardTileProps {
   tile: Tile;
@@ -19,7 +19,9 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
   const owner = ownership ? state.players[ownership.ownerId] : null;
   const playersHere = Object.values(state.players).filter((p) => p.position === tile.index);
   const isOwnable = OWNABLE_KINDS.has(tile.kind);
-  const groupColor = tile.kind === 'property' ? GROUP_COLORS[tile.group] : undefined;
+  const flagSvg = tile.kind === 'property' ? GROUP_FLAG_SVG[tile.group] : undefined;
+  const currentTurnPlayerId =
+    state.phase.type !== 'game-over' ? state.turnOrder[state.currentPlayerIndex] : undefined;
 
   const bandStyle: CSSProperties =
     owner && side
@@ -28,48 +30,57 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
         : { [side]: 0, top: 0, bottom: 0, width: BAND_THICKNESS, backgroundColor: owner.color }
       : {};
 
-  // The country colour lives on the tile's inner edge — the opposite side
-  // from the owner band, same as a physical board's printed colour strip.
+  // The country flag badge sits on the tile's inner edge — the opposite side
+  // from the owner band — with its center exactly on the boundary between
+  // the tile and the board's center area, poking out past the tile itself.
   const innerSide = side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left';
-  const groupBandStyle: CSSProperties =
-    groupColor && side
+  const flagStyle: CSSProperties =
+    flagSvg && side
       ? innerSide === 'top' || innerSide === 'bottom'
-        ? { [innerSide]: 0, left: 0, right: 0, height: '30%', backgroundColor: groupColor }
-        : { [innerSide]: 0, top: 0, bottom: 0, width: '30%', backgroundColor: groupColor }
+        ? { [innerSide]: 0, left: '50%', transform: `translate(-50%, ${innerSide === 'top' ? '-50%' : '50%'})` }
+        : { [innerSide]: 0, top: '50%', transform: `translate(${innerSide === 'left' ? '-50%' : '50%'}, -50%)` }
       : {};
 
   // Side columns get their label rotated so it reads along the board's edge,
-  // same convention as a physical Monopoly board.
+  // same convention as a physical Monopoly board. The icon is counter-rotated
+  // on the left side so it stays upright.
   const labelStyle: CSSProperties =
     side === 'left'
       ? { writingMode: 'vertical-rl', transform: 'rotate(180deg)' }
       : side === 'right'
         ? { writingMode: 'vertical-rl' }
         : {};
+  const iconStyle: CSSProperties = side === 'left' ? { transform: 'rotate(180deg)' } : {};
 
   return (
     <button
       type="button"
       onClick={() => isOwnable && onSelect?.(tile.index)}
       style={{ gridRow: position.row, gridColumn: position.col }}
-      className={`relative flex flex-col items-center justify-between overflow-hidden rounded-md bg-slate-950 p-1 text-center text-[10px] leading-tight ${
+      className={`relative flex flex-col items-center justify-between overflow-visible rounded-md bg-slate-950 p-1 text-center text-[10px] leading-tight ${
         isOwnable ? 'cursor-pointer hover:brightness-125' : 'cursor-default'
       }`}
     >
-      {groupColor && <div className="absolute z-0" style={groupBandStyle} />}
       {owner && <div className="absolute z-10" style={bandStyle} />}
 
+      {ownership && tile.kind === 'property' && ownership.houses > 0 && owner && (
+        <div
+          className="absolute left-0.5 top-0.5 z-10 whitespace-nowrap rounded-full border border-white/35 px-1 py-px text-[9px] font-extrabold text-white"
+          style={{ backgroundColor: owner.color, textShadow: '0 1px 2px rgba(0,0,0,0.7)' }}
+        >
+          {ownership.houses === 5 ? '🏨' : ownership.houses > 1 ? `🏠×${ownership.houses}` : '🏠'}
+        </div>
+      )}
+
       <div className="relative z-10 flex w-full flex-1 flex-col items-center justify-center gap-0.5">
-        {tile.kind === 'property' && ownership && ownership.houses > 0 && (
-          <span className="flex items-center gap-0.5 text-amber-300">
-            {ownership.houses === 5 ? '🏨' : <>🏠×{ownership.houses}</>}
-          </span>
-        )}
+        <span className="text-sm leading-none" style={iconStyle}>
+          {tileIcon(tile)}
+        </span>
         <span
           className="line-clamp-2 w-full min-h-0 flex-1 break-words font-medium text-slate-100"
           style={labelStyle}
         >
-          {tileLabel(tile)}
+          {tileName(tile)}
         </span>
         {(tile.kind === 'property' || tile.kind === 'airport' || tile.kind === 'utility' || tile.kind === 'hospital') && (
           <span className="text-slate-500">${tile.price}</span>
@@ -83,37 +94,54 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             <span
               key={p.id}
               title={p.name}
-              className="h-2.5 w-2.5 rounded-full border border-slate-950"
-              style={{ backgroundColor: p.color }}
+              className={`flex h-3 w-3 items-center justify-center rounded-full border border-slate-950 ${
+                p.id === currentTurnPlayerId ? 'animate-pulse ring-2 ring-white' : ''
+              }`}
+              style={{
+                backgroundColor: p.color,
+                boxShadow: p.id === currentTurnPlayerId ? `0 0 6px 2px ${p.color}` : undefined,
+              }}
             />
           ))}
         </div>
+      )}
+
+      {flagSvg && (
+        <div
+          className="absolute z-20 h-4 w-4 overflow-hidden rounded-full border border-white/35 shadow"
+          style={flagStyle}
+          dangerouslySetInnerHTML={{ __html: flagSvg }}
+        />
       )}
     </button>
   );
 }
 
-function tileLabel(tile: Tile): string {
+function tileName(tile: Tile): string {
+  return tile.kind === 'card' ? (tile.deck === 'travel' ? 'Travel' : 'Customs') : tile.name;
+}
+
+function tileIcon(tile: Tile): string {
   switch (tile.kind) {
     case 'property':
-      return `${GROUP_FLAGS[tile.group]} ${tile.name}`;
+      return tile.emoji;
     case 'airport':
-      return `✈️ ${tile.name}`;
+      return '✈️';
     case 'utility':
-      return `⚡ ${tile.name}`;
+      return '⚡';
     case 'hospital':
-      return `🏥 ${tile.name}`;
+      return '🏥';
     case 'tax':
-      return `💸 ${tile.name}`;
+      return '💸';
     case 'card':
-      return tile.deck === 'travel' ? '🧳 Travel' : '🛃 Customs';
+      return tile.deck === 'travel' ? '🧳' : '🛃';
     case 'go':
-      return '➡️ GO';
+      return '➡️';
     case 'jail':
-      return '🚔 Jail';
+      return '🚔';
     case 'vacation':
-      return '🏖️ Vacation';
+      return '🏖️';
     case 'go-to-jail':
-      return '👮 Go to Jail';
+      return '👮';
   }
 }

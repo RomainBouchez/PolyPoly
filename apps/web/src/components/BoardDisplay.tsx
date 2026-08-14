@@ -24,7 +24,7 @@ export function BoardDisplay() {
     <div className="h-dvh overflow-hidden bg-slate-950 p-4 text-slate-100">
       <div className="mx-auto flex h-full max-w-7xl gap-4">
         <div className="flex min-w-0 flex-1 items-center justify-center">
-          <BoardGrid state={gameState} myPlayerId="" onAction={NOOP_ACTION}>
+          <BoardGrid state={gameState} events={events} myPlayerId="" onAction={NOOP_ACTION}>
             {gameState.phase.type !== 'game-over' && currentPlayer && (
               <p className="text-lg font-semibold" style={{ color: currentPlayer.color }}>
                 {currentPlayer.name}'s turn

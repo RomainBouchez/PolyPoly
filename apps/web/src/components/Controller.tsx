@@ -194,7 +194,7 @@ function BoardTab({ state, events, myPlayerId, onAction }: ControllerProps) {
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
       <div className="flex items-center justify-center">
-        <BoardGrid state={state} myPlayerId={myPlayerId} onAction={onAction}>
+        <BoardGrid state={state} events={events} myPlayerId={myPlayerId} onAction={onAction}>
           <ActionPanel state={state} myPlayerId={myPlayerId} onAction={onAction} />
         </BoardGrid>
       </div>

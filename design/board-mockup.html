@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PolyPoly board mockup</title>
+<style>
+  :root {
+    --bg: #05070d;
+    --panel: #0f1420;
+    --panel-2: #141b2b;
+    --border: rgba(255,255,255,0.08);
+    --text: #f1f4fb;
+    --text-dim: #8993ac;
+    --accent: #34d399;
+    --amber: #fbbf24;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; height: 100%; background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+  }
+  body {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    padding: 16px; gap: 12px;
+  }
+
+  /* ---------- toolbar (demo controls, not part of the real board) ---------- */
+  #toolbar {
+    display: flex; flex-wrap: wrap; gap: 8px; max-width: 900px; justify-content: center;
+  }
+  #toolbar button {
+    background: var(--panel-2); color: var(--text); border: 1px solid var(--border);
+    border-radius: 8px; padding: 6px 12px; font-size: 12px; cursor: pointer;
+  }
+  #toolbar button:hover { background: #1b2438; }
+
+  /* ---------- board ---------- */
+  #board-wrap {
+    position: relative;
+    width: min(92vw, calc(100dvh - 140px));
+    aspect-ratio: 1 / 1;
+  }
+  #board {
+    position: relative;
+    width: 100%; height: 100%;
+    display: grid;
+    gap: 3px;
+    background: #000;
+    border-radius: 12px;
+    padding: 3px;
+  }
+
+  .tile {
+    position: relative;
+    background: var(--panel);
+    border-radius: 6px;
+    /* visible, not hidden — the flag badge pokes out past the tile edge
+       toward the board center; the mortgage stripe/bands stay contained via
+       .tile-clip below instead of clipping the whole tile. */
+    overflow: visible;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+  }
+  .tile-clip {
+    position: absolute;
+    inset: 0;
+    border-radius: 6px;
+    overflow: hidden;
+    z-index: 0;
+  }
+  .tile.corner {
+    background: var(--panel-2);
+  }
+
+  /* country flag badge, sits on the inner edge */
+  .flag-badge {
+    position: absolute;
+    z-index: 2;
+    width: clamp(15px, 2.1vw, 24px);
+    height: clamp(15px, 2.1vw, 24px);
+    border-radius: 50%;
+    overflow: hidden;
+    border: 1.5px solid rgba(255,255,255,0.35);
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+  }
+  .flag-badge svg {
+    width: 100%; height: 100%;
+    display: block;
+  }
+  .band-owner {
+    position: absolute;
+    background: var(--owner-color, transparent);
+    z-index: 3;
+  }
+
+  .tile-content {
+    position: relative;
+    z-index: 2;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 4px 2px;
+    text-align: center;
+    min-height: 0;
+  }
+  .tile-icon { font-size: clamp(11px, 1.6vw, 18px); line-height: 1; }
+  .tile-name {
+    font-size: clamp(8px, 1.05vw, 12px);
+    font-weight: 700;
+    line-height: 1.05;
+    color: var(--text);
+    text-shadow: 0 1px 2px rgba(0,0,0,0.6);
+    word-break: break-word;
+    hyphens: auto;
+    max-width: 100%;
+  }
+  .tile-price {
+    font-size: clamp(7px, 0.9vw, 10px);
+    color: var(--text-dim);
+    font-weight: 600;
+  }
+  .tile-houses {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    z-index: 1;
+    font-size: clamp(8px, 1.1vw, 12px);
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    /* background set inline per-tile to the owner's player color */
+    border: 1px solid rgba(255,255,255,0.35);
+    border-radius: 999px;
+    padding: 1px 4px;
+    line-height: 1.4;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    white-space: nowrap;
+  }
+
+  /* squat: a free, temporary hotel on someone else's tile — smaller pill,
+     offset from the real houses badge, colored with the squatter's color. */
+  .tile-squat {
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    z-index: 1;
+    font-size: clamp(6px, 0.85vw, 9px);
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.7);
+    border: 1px solid rgba(255,255,255,0.4);
+    border-radius: 999px;
+    padding: 0.5px 3px;
+    line-height: 1.3;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.5);
+    white-space: nowrap;
+    cursor: pointer;
+  }
+  /* moved to the opposite corner when a real houses pill already occupies top-left */
+  .tile-squat.stacked { left: auto; right: 3px; }
+
+  .squat-tooltip {
+    position: fixed;
+    z-index: 50;
+    background: rgba(10, 14, 24, 0.97);
+    border: 1px solid rgba(255,255,255,0.16);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+    pointer-events: none;
+    opacity: 0;
+    transform: translate(-50%, -100%) translateY(-6px);
+    transition: opacity 0.12s ease;
+    white-space: nowrap;
+  }
+  .squat-tooltip.show {
+    opacity: 1;
+  }
+
+  .corner .tile-icon { font-size: clamp(16px, 2.4vw, 28px); }
+  .corner .tile-name { font-size: clamp(9px, 1.2vw, 13px); letter-spacing: 0.02em; }
+
+  /* side rotation for left/right columns */
+  .side-left .tile-content, .side-right .tile-content { writing-mode: vertical-rl; }
+  .side-left .tile-content { transform: rotate(180deg); }
+  /* the whole content block is flipped 180° on the left side so the text
+     reads correctly — counter-rotate the icon so it stays upright. */
+  .side-left .tile-icon { transform: rotate(180deg); }
+
+  /* players cluster — centered on the tile, on top of everything */
+  .tile-players {
+    position: absolute;
+    inset: 0;
+    z-index: 4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    flex-wrap: wrap;
+    pointer-events: none;
+    padding: 10%;
+  }
+  .side-left .tile-players, .side-right .tile-players { flex-direction: column; }
+  .token {
+    position: relative;
+    width: clamp(14px, 2vw, 22px);
+    height: clamp(14px, 2vw, 22px);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: clamp(7px, 1vw, 10px);
+    font-weight: 800;
+    color: #061018;
+    border: 2px solid rgba(5,7,13,0.9);
+    box-shadow: 0 1px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.25);
+  }
+  /* current player's turn — glowing ring so their pawn is easy to spot */
+  .token.token-turn {
+    box-shadow:
+      0 1px 4px rgba(0,0,0,0.6),
+      0 0 0 1px rgba(255,255,255,0.35),
+      0 0 0 3px var(--glow-color, #fff),
+      0 0 10px 3px var(--glow-color, #fff);
+    animation: token-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes token-pulse {
+    0%, 100% {
+      box-shadow:
+        0 1px 4px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.35),
+        0 0 0 3px var(--glow-color, #fff),
+        0 0 8px 2px var(--glow-color, #fff);
+    }
+    50% {
+      box-shadow:
+        0 1px 4px rgba(0,0,0,0.6),
+        0 0 0 1px rgba(255,255,255,0.35),
+        0 0 0 4px var(--glow-color, #fff),
+        0 0 16px 6px var(--glow-color, #fff);
+    }
+  }
+
+  .mortgaged-badge {
+    position: absolute; inset: 0; z-index: 3;
+    background: repeating-linear-gradient(135deg, rgba(0,0,0,0.55) 0 6px, rgba(0,0,0,0.35) 6px 12px);
+  }
+
+  /* ---------- center panel ---------- */
+  #center {
+    position: relative;
+    display: flex; align-items: center; justify-content: center;
+    background: radial-gradient(ellipse at center, #131b2c 0%, #0b1019 100%);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  #center-label {
+    font-size: clamp(18px, 3vw, 36px);
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    color: rgba(255,255,255,0.06);
+    user-select: none;
+  }
+
+  /* ---------- notification toast ---------- */
+  #toast {
+    position: absolute;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(0.9);
+    background: rgba(15, 20, 32, 0.96);
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5);
+    border-radius: 16px;
+    padding: 16px 22px;
+    display: flex; align-items: center; gap: 10px;
+    max-width: 80%;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease, transform 0.25s ease;
+    z-index: 10;
+  }
+  #toast.show {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  #toast .toast-icon { font-size: 26px; flex-shrink: 0; }
+  #toast .toast-text { font-size: 14px; font-weight: 600; line-height: 1.3; }
+  #toast .toast-sub { font-size: 12px; color: var(--text-dim); font-weight: 500; margin-top: 2px; }
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button onclick="toast('🎲','Alice rolled a 5', 2)">Roll</button>
+  <button onclick="toast('🧳','Bob drew: Advance to Paris', 25)">Chance card</button>
+  <button onclick="toast('🚔','Cleo was sent to jail', 33)">Jail</button>
+  <button onclick="toast('🤒','Alice got sick — paid the hospital', 2)">Illness</button>
+  <button onclick="toast('🏠','Bob bought Porto for \$60', 2)">Buy</button>
+  <button onclick="toast('💰','Cleo paid \$28 rent to Alice', 19)">Rent</button>
+</div>
+
+<div id="board-wrap">
+  <div id="board"></div>
+</div>
+
+<script>
+// ---- board data, mirrors packages/engine/src/data/board.europe.ts ----
+const GROUP_COLORS = {
+  portugal: '#a16207', greece: '#0ea5e9', norway: '#7c3aed', netherlands: '#f97316',
+  spain: '#dc2626', italy: '#16a34a', uk: '#4338ca', france: '#db2777',
+};
+const GROUP_FLAGS = {
+  portugal: '🇵🇹', greece: '🇬🇷', norway: '🇳🇴', netherlands: '🇳🇱',
+  spain: '🇪🇸', italy: '🇮🇹', uk: '🇬🇧', france: '🇫🇷',
+};
+
+// Hand-rolled inline SVGs (viewBox 0 0 3 2, standard flag ratio) — no
+// external requests, renders identically everywhere regardless of the OS's
+// emoji font.
+const GROUP_FLAG_SVG = {
+  portugal: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#ff0000"/><rect width="1.2" height="2" fill="#046a38"/><circle cx="1.2" cy="1" r="0.35" fill="#ffcc00" stroke="#ff0000" stroke-width="0.05"/></svg>`,
+  greece: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#0d5eaf"/>
+    <rect y="0" width="3" height="0.222" fill="#fff"/><rect y="0.444" width="3" height="0.222" fill="#fff"/>
+    <rect y="0.888" width="3" height="0.222" fill="#fff"/><rect y="1.333" width="3" height="0.222" fill="#fff"/>
+    <rect y="1.777" width="3" height="0.223" fill="#fff"/>
+    <rect width="1.111" height="1.111" fill="#0d5eaf"/>
+    <rect x="0.444" width="0.222" height="1.111" fill="#fff"/><rect y="0.444" width="1.111" height="0.222" fill="#fff"/></svg>`,
+  norway: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#ba0c2f"/>
+    <rect x="0.8" width="0.5" height="2" fill="#fff"/><rect y="0.75" width="3" height="0.5" fill="#fff"/>
+    <rect x="0.9" width="0.3" height="2" fill="#00205b"/><rect y="0.85" width="3" height="0.3" fill="#00205b"/></svg>`,
+  netherlands: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="0.667" fill="#ae1c28"/><rect y="0.667" width="3" height="0.667" fill="#fff"/><rect y="1.333" width="3" height="0.667" fill="#21468b"/></svg>`,
+  spain: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#aa151b"/><rect y="0.5" width="3" height="1" fill="#f1bf00"/></svg>`,
+  italy: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/></svg>`,
+  uk: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="3" height="2" fill="#00247d"/>
+    <path d="M0,0 L3,2 M3,0 L0,2" stroke="#fff" stroke-width="0.4"/>
+    <path d="M0,0 L3,2 M3,0 L0,2" stroke="#cf142b" stroke-width="0.13"/>
+    <path d="M1.5,0 V2 M0,1 H3" stroke="#fff" stroke-width="0.66"/>
+    <path d="M1.5,0 V2 M0,1 H3" stroke="#cf142b" stroke-width="0.4"/></svg>`,
+  france: `<svg viewBox="0 0 3 2" preserveAspectRatio="xMidYMid slice"><rect width="1" height="2" fill="#0055a4"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ef4135"/></svg>`,
+};
+
+function prop(index, group, name, price, emoji) {
+  return { kind: 'property', index, group, name, price, emoji };
+}
+
+const tiles = [
+  { kind: 'go', index: 0, name: 'GO' },
+  prop(1, 'portugal', 'Sintra', 60, '🏰'),
+  prop(2, 'portugal', 'Porto', 60, '🍷'),
+  { kind: 'card', index: 3, deck: 'travel', name: 'Travel' },
+  prop(4, 'portugal', 'Lisbon', 80, '🚋'),
+  { kind: 'tax', index: 5, name: 'Departure Tax', amount: 200 },
+  { kind: 'airport', index: 6, name: 'Lisbon Airport', price: 200 },
+  { kind: 'hospital', index: 7, name: 'Central Hospital', price: 150 },
+  prop(8, 'greece', 'Poros', 100, '🏝️'),
+  prop(9, 'greece', 'Naxos', 100, '🌊'),
+  prop(10, 'greece', 'Athens', 120, '🏛️'),
+  { kind: 'jail', index: 11, name: 'Jail' },
+  prop(12, 'norway', 'Tromsø', 140, '🌌'),
+  prop(13, 'norway', 'Bergen', 140, '⛰️'),
+  { kind: 'card', index: 14, deck: 'customs', name: 'Customs' },
+  prop(15, 'norway', 'Oslo', 160, '🛶'),
+  { kind: 'utility', index: 16, name: 'Ferry Company', price: 150 },
+  { kind: 'airport', index: 17, name: 'Oslo Airport', price: 200 },
+  { kind: 'hospital', index: 18, name: 'North Hospital', price: 150 },
+  prop(19, 'netherlands', 'Rotterdam', 180, '🚢'),
+  prop(20, 'netherlands', 'Utrecht', 180, '⛲'),
+  prop(21, 'netherlands', 'Amsterdam', 200, '🚲'),
+  { kind: 'vacation', index: 22, name: 'Vacation' },
+  prop(23, 'spain', 'Seville', 220, '💃'),
+  prop(24, 'spain', 'Barcelona', 220, '🏟️'),
+  { kind: 'card', index: 25, deck: 'travel', name: 'Travel' },
+  prop(26, 'spain', 'Madrid', 240, '🎨'),
+  { kind: 'utility', index: 27, name: 'Railway Network', price: 150 },
+  { kind: 'airport', index: 28, name: 'Madrid Airport', price: 200 },
+  { kind: 'hospital', index: 29, name: 'South Hospital', price: 150 },
+  prop(30, 'italy', 'Florence', 260, '🎭'),
+  prop(31, 'italy', 'Venice', 260, '🚤'),
+  prop(32, 'italy', 'Rome', 280, '🏟️'),
+  { kind: 'go-to-jail', index: 33, name: 'Go To Jail' },
+  prop(34, 'uk', 'Bristol', 300, '🌉'),
+  prop(35, 'uk', 'Manchester', 300, '⚽'),
+  { kind: 'card', index: 36, deck: 'customs', name: 'Customs' },
+  prop(37, 'uk', 'London', 320, '🎡'),
+  { kind: 'airport', index: 38, name: 'London Airport', price: 200 },
+  { kind: 'tax', index: 39, name: 'Luxury Tax', amount: 100 },
+  prop(40, 'france', 'Mont-Saint-Michel', 350, '🗻'),
+  prop(41, 'france', 'Nantes', 350, '🐘'),
+  prop(42, 'france', 'Paris', 400, '🗼'),
+];
+
+// ---- demo ownership + players, just to visualize ----
+const players = [
+  { id: 'p1', name: 'Alice', color: '#ef4444', position: 2 },
+  { id: 'p2', name: 'Bob', color: '#3b82f6', position: 2 },
+  { id: 'p3', name: 'Cleo', color: '#22c55e', position: 26 },
+  { id: 'p4', name: 'Theo', color: '#eab308', position: 17 },
+];
+const ownership = {
+  1: { ownerId: 'p1', houses: 2, mortgaged: false },
+  2: { ownerId: 'p1', houses: 0, mortgaged: false },
+  4: { ownerId: 'p2', houses: 0, mortgaged: true },
+  6: { ownerId: 'p1', houses: 0, mortgaged: false },
+  19: { ownerId: 'p3', houses: 5, mortgaged: false },
+  26: { ownerId: 'p3', houses: 0, mortgaged: false },
+  34: { ownerId: 'p4', houses: 3, mortgaged: false },
+};
+// whose turn it is right now — that player's token gets the glow
+const currentTurnPlayerId = 'p1';
+
+// demo squats: a free, temporary hotel someone placed on another player's tile
+const squats = {
+  26: { playerId: 'p4', turnsLeft: 2 }, // Theo squatting on Cleo's Madrid
+  1: { playerId: 'p3', turnsLeft: 1 },  // Cleo squatting on Alice's Sintra (stacks next to the real houses pill)
+};
+
+// ---- generic ring layout (mirrors packages/engine/src/boardLayout.ts) ----
+function computeBoardLayout(tiles) {
+  const N = tiles.length;
+  const cornerKinds = new Set(['go', 'jail', 'vacation', 'go-to-jail']);
+  const corners = tiles.filter(t => cornerKinds.has(t.kind)).sort((a, b) => a.index - b.index);
+  const goIdx = corners.findIndex(c => c.kind === 'go');
+  const ordered = [...corners.slice(goIdx), ...corners.slice(0, goIdx)];
+  const [c0, c1, c2, c3] = ordered;
+  const segLen = (from, to) => (to - from - 1 + N) % N;
+  const tilesBetween = (from, len) => Array.from({ length: len }, (_, i) => (from + i + 1) % N);
+  const side1 = segLen(c0.index, c1.index);
+  const side2 = segLen(c1.index, c2.index);
+  const side3 = segLen(c2.index, c3.index);
+  const side4 = segLen(c3.index, c0.index);
+  const gridSize = Math.max(side1, side2, side3, side4) + 2;
+
+  const positions = {};
+  const sides = {};
+  positions[c0.index] = { row: gridSize, col: gridSize };
+  positions[c1.index] = { row: gridSize, col: 1 };
+  positions[c2.index] = { row: 1, col: 1 };
+  positions[c3.index] = { row: 1, col: gridSize };
+
+  tilesBetween(c0.index, side1).forEach((idx, i) => { positions[idx] = { row: gridSize, col: gridSize - (i + 1) }; sides[idx] = 'bottom'; });
+  tilesBetween(c1.index, side2).forEach((idx, i) => { positions[idx] = { row: gridSize - (i + 1), col: 1 }; sides[idx] = 'left'; });
+  tilesBetween(c2.index, side3).forEach((idx, i) => { positions[idx] = { row: 1, col: 1 + (i + 1) }; sides[idx] = 'top'; });
+  tilesBetween(c3.index, side4).forEach((idx, i) => { positions[idx] = { row: 1 + (i + 1), col: gridSize }; sides[idx] = 'right'; });
+
+  return { gridSize, positions, sides };
+}
+
+function tileIcon(tile) {
+  switch (tile.kind) {
+    case 'property': return tile.emoji || '📍';
+    case 'airport': return '✈️';
+    case 'utility': return '⚡';
+    case 'hospital': return '🏥';
+    case 'tax': return '💸';
+    case 'card': return tile.deck === 'travel' ? '🧳' : '🛃';
+    case 'go': return '➡️';
+    case 'jail': return '🚔';
+    case 'vacation': return '🏖️';
+    case 'go-to-jail': return '👮';
+  }
+}
+
+function initials(name) {
+  return name.slice(0, 2).toUpperCase();
+}
+
+let currentLayout = null;
+
+function render() {
+  const layout = computeBoardLayout(tiles);
+  currentLayout = layout;
+  const board = document.getElementById('board');
+  board.style.gridTemplateColumns = `repeat(${layout.gridSize}, minmax(0, 1fr))`;
+  board.style.gridTemplateRows = `repeat(${layout.gridSize}, minmax(0, 1fr))`;
+  board.innerHTML = '';
+
+  // Appended first so it paints *underneath* the tiles — flag badges are
+  // meant to poke past their tile's edge over the empty center area.
+  const center = document.createElement('div');
+  center.id = 'center';
+  center.style.gridRow = `2 / span ${layout.gridSize - 2}`;
+  center.style.gridColumn = `2 / span ${layout.gridSize - 2}`;
+  center.innerHTML = `<div id="center-label">POLYPOLY</div><div id="toast"></div>`;
+  board.appendChild(center);
+
+  for (const tile of tiles) {
+    const pos = layout.positions[tile.index];
+    const side = layout.sides[tile.index];
+    const isCorner = !side;
+    const isOwnable = ['property', 'airport', 'utility', 'hospital'].includes(tile.kind);
+    const owned = ownership[tile.index];
+    const owner = owned ? players.find(p => p.id === owned.ownerId) : null;
+    const flag = tile.kind === 'property' ? GROUP_FLAGS[tile.group] : null;
+
+    const el = document.createElement('div');
+    el.className = `tile ${isCorner ? 'corner' : `side-${side}`}`;
+    el.style.gridRow = pos.row;
+    el.style.gridColumn = pos.col;
+
+    // Everything that must stay inside the tile's rounded corners (owner
+    // band, mortgage stripes) lives in this clipped wrapper.
+    const clip = document.createElement('div');
+    clip.className = 'tile-clip';
+    el.appendChild(clip);
+
+    if (owner && !isCorner) {
+      const band = document.createElement('div');
+      band.className = 'band-owner';
+      band.style.setProperty('--owner-color', owner.color);
+      if (side === 'top' || side === 'bottom') {
+        band.style[side] = '0'; band.style.left = '0'; band.style.right = '0'; band.style.height = '6px';
+      } else {
+        band.style[side] = '0'; band.style.top = '0'; band.style.bottom = '0'; band.style.width = '6px';
+      }
+      clip.appendChild(band);
+    }
+
+    if (owned && owned.mortgaged) {
+      const badge = document.createElement('div');
+      badge.className = 'mortgaged-badge';
+      clip.appendChild(badge);
+    }
+
+    let hasHousesPill = false;
+    if (owned && owned.houses > 0) {
+      const houses = document.createElement('div');
+      houses.className = 'tile-houses';
+      houses.style.background = owner.color;
+      houses.textContent = owned.houses === 5 ? '🏨' : owned.houses > 1 ? `🏠×${owned.houses}` : '🏠';
+      clip.appendChild(houses);
+      hasHousesPill = true;
+    }
+
+    const squat = squats[tile.index];
+    if (squat) {
+      const squatter = players.find(p => p.id === squat.playerId);
+      const pill = document.createElement('div');
+      pill.className = `tile-squat${hasHousesPill ? ' stacked' : ''}`;
+      pill.style.background = squatter.color;
+      pill.textContent = '🏨';
+      pill.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showSquatTooltip(pill, squatter, squat.turnsLeft);
+      });
+      clip.appendChild(pill);
+    }
+
+    if (flag) {
+      // Its center sits exactly on the boundary between the tile and the
+      // center grid area. `top/left/right/bottom: 0%` pins the badge's edge
+      // to the tile's edge, then the transform shifts it by half of the
+      // BADGE's own size (not the tile's — percentages on top/left are
+      // relative to the containing tile, but transform% is relative to the
+      // element itself) so it straddles the line evenly regardless of tile size.
+      const innerSide = side === 'top' ? 'bottom' : side === 'bottom' ? 'top' : side === 'left' ? 'right' : 'left';
+      const badge = document.createElement('div');
+      badge.className = 'flag-badge';
+      badge.innerHTML = GROUP_FLAG_SVG[tile.group];
+      if (innerSide === 'top' || innerSide === 'bottom') {
+        badge.style[innerSide] = '0'; badge.style.left = '50%';
+        badge.style.transform = `translate(-50%, ${innerSide === 'top' ? '-50%' : '50%'})`;
+      } else {
+        badge.style[innerSide] = '0'; badge.style.top = '50%';
+        badge.style.transform = `translate(${innerSide === 'left' ? '-50%' : '50%'}, -50%)`;
+      }
+      el.appendChild(badge);
+    }
+
+    const content = document.createElement('div');
+    content.className = 'tile-content';
+    content.innerHTML = `
+      <div class="tile-icon">${tileIcon(tile)}</div>
+      <div class="tile-name">${tile.name}</div>
+      ${isOwnable ? `<div class="tile-price">$${tile.price}</div>` : ''}
+    `;
+    el.appendChild(content);
+
+    const here = players.filter(p => p.position === tile.index);
+    if (here.length) {
+      const cluster = document.createElement('div');
+      cluster.className = 'tile-players';
+      cluster.innerHTML = here.map(p => {
+        const isTurn = p.id === currentTurnPlayerId;
+        return `<div class="token${isTurn ? ' token-turn' : ''}" style="background:${p.color};--glow-color:${p.color}" title="${p.name}">${initials(p.name)}</div>`;
+      }).join('');
+      el.appendChild(cluster);
+    }
+
+    board.appendChild(el);
+  }
+}
+
+render();
+
+// ---- squat tooltip ----
+// One reusable tooltip, positioned above whichever pill was clicked; a click
+// anywhere else (or on the same pill again) closes it.
+const squatTooltipEl = document.createElement('div');
+squatTooltipEl.className = 'squat-tooltip';
+document.body.appendChild(squatTooltipEl);
+let squatTooltipAnchor = null;
+
+function showSquatTooltip(anchor, squatter, turnsLeft) {
+  if (squatTooltipAnchor === anchor) {
+    hideSquatTooltip();
+    return;
+  }
+  squatTooltipAnchor = anchor;
+  const rect = anchor.getBoundingClientRect();
+  squatTooltipEl.textContent = `${squatter.name} is squatting — ${turnsLeft} turn${turnsLeft === 1 ? '' : 's'} left`;
+  squatTooltipEl.style.left = `${rect.left + rect.width / 2}px`;
+  squatTooltipEl.style.top = `${rect.top}px`;
+  squatTooltipEl.classList.add('show');
+}
+function hideSquatTooltip() {
+  squatTooltipAnchor = null;
+  squatTooltipEl.classList.remove('show');
+}
+document.addEventListener('click', hideSquatTooltip);
+
+// ---- toast notification demo ----
+// Positions the toast inside the center panel, biased toward whichever tile
+// triggered it — e.g. a "sent to jail" toast appears near the jail corner,
+// a card draw appears near that card tile — instead of always dead-center.
+function toastPositionForTile(tileIndex) {
+  if (tileIndex == null || !currentLayout) return { left: 50, top: 50 };
+  const pos = currentLayout.positions[tileIndex];
+  if (!pos) return { left: 50, top: 50 };
+  const g = currentLayout.gridSize;
+  const clamp = (v) => Math.min(0.82, Math.max(0.18, v));
+  const left = clamp((pos.col - 1) / (g - 1)) * 100;
+  const top = clamp((pos.row - 1) / (g - 1)) * 100;
+  return { left, top };
+}
+
+let toastTimer = null;
+function toast(icon, text, tileIndex) {
+  const el = document.getElementById('toast');
+  clearTimeout(toastTimer);
+  el.innerHTML = `<div class="toast-icon">${icon}</div><div><div class="toast-text">${text}</div></div>`;
+  const { left, top } = toastPositionForTile(tileIndex);
+  el.style.left = left + '%';
+  el.style.top = top + '%';
+  // restart the transition even if it's already showing
+  el.classList.remove('show');
+  void el.offsetWidth;
+  el.classList.add('show');
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2000);
+}
+</script>
+</body>
+</html>

@@ -1,19 +1,21 @@
 import { useMemo, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
-import type { GameAction, GameState, PlayerId } from '@polypoly/engine';
+import type { GameAction, GameEvent, GameState, PlayerId } from '@polypoly/engine';
 import type { ReactNode } from 'react';
 import { BoardTile } from './BoardTile.js';
+import { EventToast } from './EventToast.js';
 import { PropertyCard } from './PropertyCard.js';
 import { computeBoardLayout } from './tileLayout.js';
 
 interface BoardGridProps {
   state: GameState;
+  events: GameEvent[];
   myPlayerId: PlayerId;
   onAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
   children?: ReactNode;
 }
 
-export function BoardGrid({ state, myPlayerId, onAction, children }: BoardGridProps) {
+export function BoardGrid({ state, events, myPlayerId, onAction, children }: BoardGridProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   // The board's shape never changes mid-game, so keying on tile count is enough.
   const layout = useMemo(() => computeBoardLayout(state.board), [state.board.tiles.length]);
@@ -41,9 +43,10 @@ export function BoardGrid({ state, myPlayerId, onAction, children }: BoardGridPr
       ))}
       <div
         style={{ gridRow: `2 / span ${layout.gridSize - 2}`, gridColumn: `2 / span ${layout.gridSize - 2}` }}
-        className="flex flex-col items-center justify-center gap-4 overflow-hidden rounded-lg bg-slate-900/60 p-4"
+        className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-lg bg-slate-900/60 p-4"
       >
         {children}
+        <EventToast events={events} state={state} layout={layout} />
       </div>
 
       <AnimatePresence>
