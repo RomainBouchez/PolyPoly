@@ -42,9 +42,9 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
   // same convention as a physical Monopoly board.
   const labelStyle: CSSProperties =
     side === 'left'
-      ? { writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap' }
+      ? { writingMode: 'vertical-rl', transform: 'rotate(180deg)' }
       : side === 'right'
-        ? { writingMode: 'vertical-rl', whiteSpace: 'nowrap' }
+        ? { writingMode: 'vertical-rl' }
         : {};
 
   return (
@@ -65,7 +65,10 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             {ownership.houses === 5 ? '🏨' : <>🏠×{ownership.houses}</>}
           </span>
         )}
-        <span className="line-clamp-2 break-words font-medium text-slate-100" style={labelStyle}>
+        <span
+          className="line-clamp-2 w-full min-h-0 flex-1 break-words font-medium text-slate-100"
+          style={labelStyle}
+        >
           {tileLabel(tile)}
         </span>
         {(tile.kind === 'property' || tile.kind === 'airport' || tile.kind === 'utility' || tile.kind === 'hospital') && (
