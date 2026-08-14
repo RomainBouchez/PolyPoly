@@ -1,0 +1,12 @@
+services:
+  polypoly:
+    build: .
+    image: polypoly:latest
+    restart: unless-stopped
+    ports:
+      - '3018:4000'
+    volumes:
+      - polypoly-data:/data
+
+volumes:
+  polypoly-data:
