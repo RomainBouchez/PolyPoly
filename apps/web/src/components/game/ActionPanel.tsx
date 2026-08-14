@@ -45,11 +45,20 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
   }
 
   if (legal.length === 0) {
+    if (state.phase.type === 'awaiting-roll') {
+      return (
+        <div className="flex justify-center">
+          <ActionButton disabled variant="primary" onClick={() => {}}>
+            🎲 Roll dice
+          </ActionButton>
+        </div>
+      );
+    }
     return <p className="text-center text-sm text-slate-500">Waiting for other players…</p>;
   }
 
   return (
-    <div className="w-full max-w-xs space-y-3">
+    <div className="mx-auto w-full max-w-xs space-y-3">
       {state.phase.type === 'awaiting-purchase' && (
         <PurchaseInfo state={state} tileIndex={state.phase.tileIndex} />
       )}
