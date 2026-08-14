@@ -22,7 +22,7 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
 
   return (
     <div
-      className="mx-auto grid aspect-square gap-1"
+      className="mx-auto grid aspect-square gap-[3px] rounded-xl bg-black p-[3px]"
       style={{
         // Sized to whichever is tighter — available height or available width —
         // so the whole board always fits without ever needing to scroll.
@@ -42,8 +42,12 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
         />
       ))}
       <div
-        style={{ gridRow: `2 / span ${layout.gridSize - 2}`, gridColumn: `2 / span ${layout.gridSize - 2}` }}
-        className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-lg bg-slate-900/60 p-4"
+        style={{
+          gridRow: `2 / span ${layout.gridSize - 2}`,
+          gridColumn: `2 / span ${layout.gridSize - 2}`,
+          background: 'radial-gradient(ellipse at center, #131b2c 0%, #0b1019 100%)',
+        }}
+        className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[10px] border border-white/[0.08] p-4"
       >
         {children}
         <EventToast events={events} state={state} layout={layout} />

@@ -1,1 +1,20 @@
 @import "tailwindcss";
+
+/* Current player's token glow — pulses using --glow-color set per-token. */
+@keyframes token-pulse {
+  0%,
+  100% {
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.35),
+      0 0 0 3px var(--glow-color, #fff),
+      0 0 8px 2px var(--glow-color, #fff);
+  }
+  50% {
+    box-shadow:
+      0 1px 4px rgba(0, 0, 0, 0.6),
+      0 0 0 1px rgba(255, 255, 255, 0.35),
+      0 0 0 4px var(--glow-color, #fff),
+      0 0 16px 6px var(--glow-color, #fff);
+  }
+}

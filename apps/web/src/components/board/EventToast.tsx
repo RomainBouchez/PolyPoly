@@ -37,15 +37,22 @@ export function EventToast({ events, state, layout }: EventToastProps) {
       {visible && (
         <motion.div
           key={visible.key}
-          className="pointer-events-none absolute z-30 flex max-w-[85%] items-center gap-2 rounded-2xl border border-white/15 bg-slate-900/95 px-4 py-2.5 shadow-2xl shadow-black/50"
-          style={{ left: `${pos.left}%`, top: `${pos.top}%` }}
-          initial={{ opacity: 0, scale: 0.85, x: '-50%', y: '-50%' }}
+          className="pointer-events-none absolute z-30 flex max-w-[80%] items-center gap-[10px] rounded-2xl border"
+          style={{
+            left: `${pos.left}%`,
+            top: `${pos.top}%`,
+            padding: '16px 22px',
+            background: 'rgba(15, 20, 32, 0.96)',
+            borderColor: 'rgba(255,255,255,0.14)',
+            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+          }}
+          initial={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
           animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
-          transition={{ duration: 0.2, ease: 'easeOut' }}
+          transition={{ duration: 0.25, ease: 'easeOut' }}
         >
-          <span className="text-lg">{visible.icon}</span>
-          <span className="text-sm font-semibold text-slate-100">{visible.text}</span>
+          <span className="shrink-0 text-[26px] leading-none">{visible.icon}</span>
+          <span className="text-sm font-semibold leading-tight text-slate-100">{visible.text}</span>
         </motion.div>
       )}
     </AnimatePresence>
