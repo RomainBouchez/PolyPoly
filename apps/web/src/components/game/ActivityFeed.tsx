@@ -1,14 +1,25 @@
+import { AnimatePresence, motion } from 'motion/react';
 import type { GameEvent, GameState } from '@polypoly/engine';
 
 export function ActivityFeed({ events, state }: { events: GameEvent[]; state: GameState }) {
   const recent = [...events].reverse().slice(0, 40);
   return (
-    <div className="flex h-full min-h-0 w-full flex-col rounded-xl border border-slate-800 bg-slate-900 p-3">
+    <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
       <h2 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</h2>
       <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto text-xs text-slate-400">
-        {recent.map((event, i) => (
-          <li key={events.length - i}>{describeEvent(event, state)}</li>
-        ))}
+        <AnimatePresence initial={false}>
+          {recent.map((event, i) => (
+            <motion.li
+              key={events.length - i}
+              initial={i === 0 ? { opacity: 0, x: -6 } : false}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.2 }}
+              className={i === 0 ? 'text-slate-300' : undefined}
+            >
+              {describeEvent(event, state)}
+            </motion.li>
+          ))}
+        </AnimatePresence>
       </ul>
     </div>
   );

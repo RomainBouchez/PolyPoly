@@ -1,3 +1,4 @@
+import { BID_INCREMENT } from './auction.js';
 import { getOwnableTile, groupTiles } from './board.js';
 import { JAIL_FINE, ownsFullGroup } from './rules.js';
 import type { GameAction, GameState, PlayerId } from './types.js';
@@ -56,7 +57,8 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
   }
 
   if (phase.type === 'auction' && phase.turnPlayerId === playerId) {
-    if (player.cash > phase.highBid) actions.push({ type: 'auction-bid', playerId, amount: phase.highBid + 1 });
+    const minBid = phase.highBid + BID_INCREMENT;
+    if (player.cash >= minBid) actions.push({ type: 'auction-bid', playerId, amount: minBid });
     actions.push({ type: 'auction-pass', playerId });
   }
 

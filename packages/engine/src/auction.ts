@@ -2,6 +2,9 @@ import { IllegalActionError } from './errors.js';
 import { activePlayerIds } from './endCondition.js';
 import type { GameState, PlayerId } from './types.js';
 
+/** Each bid must raise the current high bid by at least this much. */
+export const BID_INCREMENT = 10;
+
 export interface AuctionPhaseData {
   type: 'auction';
   tileIndex: number;
@@ -63,7 +66,8 @@ export function recordBid(draft: GameState, playerId: PlayerId, amount: number):
   const phase = draft.phase;
   if (phase.type !== 'auction') throw new IllegalActionError('No auction in progress');
   if (phase.turnPlayerId !== playerId) throw new IllegalActionError('Not your turn to bid');
-  if (amount <= phase.highBid) throw new IllegalActionError('Bid must be higher than the current bid');
+  if (amount < phase.highBid + BID_INCREMENT)
+    throw new IllegalActionError(`Bid must be at least $${BID_INCREMENT} higher than the current bid`);
   const player = draft.players[playerId]!;
   if (player.cash < amount) throw new IllegalActionError('Not enough cash for that bid');
 

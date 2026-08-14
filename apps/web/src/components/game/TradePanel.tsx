@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { motion } from 'motion/react';
 import type { GameAction, GameState, PlayerId } from '@polypoly/engine';
 
 interface TradePanelProps {
@@ -64,42 +65,48 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
   }
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Trades</h2>
 
       {incoming.map((t) => (
-        <div key={t.id} className="mb-2 rounded-md bg-slate-800 p-2 text-sm">
+        <div key={t.id} className="mb-2 rounded-xl bg-white/5 p-2.5 text-sm ring-1 ring-inset ring-white/10">
           <p className="text-slate-200">
             {state.players[t.fromId]?.name} offers {t.fromProperties.map((i) => tileName(state, i)).join(', ') || 'nothing'}
             {t.fromCash > 0 && ` + $${t.fromCash}`} for {t.toProperties.map((i) => tileName(state, i)).join(', ') || 'nothing'}
             {t.toCash > 0 && ` + $${t.toCash}`}
           </p>
-          <div className="mt-1 flex gap-2">
-            <button
+          <div className="mt-1.5 flex gap-2">
+            <motion.button
               onClick={() => onAction({ type: 'respond-trade', playerId: myPlayerId, tradeId: t.id, accept: true })}
-              className="rounded-md bg-emerald-500 px-2 py-1 text-xs text-slate-950"
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+              className="rounded-lg bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-slate-950 active:bg-emerald-400"
             >
               Accept
-            </button>
-            <button
+            </motion.button>
+            <motion.button
               onClick={() => onAction({ type: 'respond-trade', playerId: myPlayerId, tradeId: t.id, accept: false })}
-              className="rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-200"
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+              className="rounded-lg bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200 active:bg-white/15"
             >
               Decline
-            </button>
+            </motion.button>
           </div>
         </div>
       ))}
 
       {outgoing.map((t) => (
-        <div key={t.id} className="mb-2 rounded-md bg-slate-800 p-2 text-sm">
+        <div key={t.id} className="mb-2 rounded-xl bg-white/5 p-2.5 text-sm ring-1 ring-inset ring-white/10">
           <p className="text-slate-200">Offer sent to {state.players[t.toId]?.name}, waiting for response…</p>
-          <button
+          <motion.button
             onClick={() => onAction({ type: 'cancel-trade', playerId: myPlayerId, tradeId: t.id })}
-            className="mt-1 rounded-md bg-slate-700 px-2 py-1 text-xs text-slate-200"
+            whileTap={{ scale: 0.94 }}
+            transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+            className="mt-1.5 rounded-lg bg-white/10 px-2.5 py-1 text-xs font-medium text-slate-200 active:bg-white/15"
           >
             Cancel
-          </button>
+          </motion.button>
         </div>
       ))}
 
@@ -113,7 +120,7 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
               setToId(e.target.value);
               setToProperties([]);
             }}
-            className="w-full rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-slate-100"
+            className="w-full rounded-lg border border-white/10 bg-slate-800 px-2 py-1.5 text-slate-100 focus:border-emerald-500/50 focus:outline-none"
           >
             {others.map((id) => (
               <option key={id} value={id}>
@@ -123,21 +130,26 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
           </select>
 
           <div className="grid grid-cols-2 gap-2">
-            <div>
-              <p className="text-xs text-slate-400">You give</p>
+            <div className="rounded-xl bg-white/[0.03] p-2 ring-1 ring-inset ring-white/10">
+              <p className="text-xs font-medium text-slate-400">You give</p>
               <PropertyChecklist state={state} tiles={myTiles} selected={fromProperties} onToggle={(i) => toggle(fromProperties, setFromProperties, i)} />
               <CashInput label="Cash" value={fromCash} onChange={setFromCash} />
             </div>
-            <div>
-              <p className="text-xs text-slate-400">You get</p>
+            <div className="rounded-xl bg-white/[0.03] p-2 ring-1 ring-inset ring-white/10">
+              <p className="text-xs font-medium text-slate-400">You get</p>
               <PropertyChecklist state={state} tiles={theirTiles} selected={toProperties} onToggle={(i) => toggle(toProperties, setToProperties, i)} />
               <CashInput label="Cash" value={toCash} onChange={setToCash} />
             </div>
           </div>
 
-          <button onClick={propose} className="w-full rounded-md bg-emerald-500 px-2 py-1.5 text-slate-950">
+          <motion.button
+            onClick={propose}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+            className="w-full rounded-lg bg-emerald-500 px-2 py-2 text-sm font-semibold text-slate-950 active:bg-emerald-400"
+          >
             Propose trade
-          </button>
+          </motion.button>
           {error && <p className="text-red-400">{error}</p>}
         </div>
       )}
@@ -161,8 +173,8 @@ function PropertyChecklist({
     <ul className="max-h-24 space-y-0.5 overflow-y-auto">
       {tiles.map((i) => (
         <li key={i}>
-          <label className="flex items-center gap-1 text-xs text-slate-300">
-            <input type="checkbox" checked={selected.includes(i)} onChange={() => onToggle(i)} />
+          <label className="flex items-center gap-1.5 text-xs text-slate-300">
+            <input type="checkbox" checked={selected.includes(i)} onChange={() => onToggle(i)} className="accent-emerald-500" />
             {tileName(state, i)}
           </label>
         </li>
@@ -180,7 +192,7 @@ function CashInput({ label, value, onChange }: { label: string; value: number; o
         min={0}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="w-16 rounded-md border border-slate-700 bg-slate-800 px-1 py-0.5 text-slate-100"
+        className="w-16 rounded-md border border-white/10 bg-slate-800 px-1 py-0.5 text-slate-100 focus:border-emerald-500/50 focus:outline-none"
       />
     </label>
   );

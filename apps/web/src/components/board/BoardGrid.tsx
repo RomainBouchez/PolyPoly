@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { AnimatePresence } from 'motion/react';
 import type { GameAction, GameState, PlayerId } from '@polypoly/engine';
 import type { ReactNode } from 'react';
 import { BoardTile } from './BoardTile.js';
@@ -45,15 +46,17 @@ export function BoardGrid({ state, myPlayerId, onAction, children }: BoardGridPr
         {children}
       </div>
 
-      {selectedTile !== null && (
-        <PropertyCard
-          state={state}
-          tileIndex={selectedTile}
-          myPlayerId={myPlayerId}
-          onAction={onAction}
-          onClose={() => setSelectedTile(null)}
-        />
-      )}
+      <AnimatePresence>
+        {selectedTile !== null && (
+          <PropertyCard
+            state={state}
+            tileIndex={selectedTile}
+            myPlayerId={myPlayerId}
+            onAction={onAction}
+            onClose={() => setSelectedTile(null)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

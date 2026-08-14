@@ -1,3 +1,4 @@
+import { motion } from 'motion/react';
 import type { GameState } from '@polypoly/engine';
 
 export function PlayersPanel({ state }: { state: GameState }) {
@@ -5,7 +6,7 @@ export function PlayersPanel({ state }: { state: GameState }) {
   const healthMode = state.config.healthMode;
 
   return (
-    <div className="rounded-xl border border-slate-800 bg-slate-900 p-3">
+    <div className="rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
       <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">Players</h2>
       <ul className="space-y-1.5">
         {state.turnOrder.map((id) => {
@@ -14,9 +15,9 @@ export function PlayersPanel({ state }: { state: GameState }) {
           return (
             <li
               key={id}
-              className={`rounded-md px-2 py-1 text-sm ${isTurn ? 'bg-slate-800' : ''} ${
-                p.status === 'bankrupt' ? 'opacity-40' : ''
-              }`}
+              className={`rounded-lg px-2 py-1.5 text-sm ring-1 ring-inset ${
+                isTurn ? 'bg-emerald-500/10 ring-emerald-500/20' : 'ring-transparent'
+              } ${p.status === 'bankrupt' ? 'opacity-40' : ''}`}
             >
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-2">
@@ -40,9 +41,13 @@ export function PlayersPanel({ state }: { state: GameState }) {
 export function HealthBar({ health }: { health: number }) {
   const color = health <= 20 ? '#ef4444' : health >= 80 ? '#22c55e' : '#eab308';
   return (
-    <div className="mt-1 flex items-center gap-1.5">
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-slate-800">
-        <div className="h-full rounded-full transition-all" style={{ width: `${health}%`, backgroundColor: color }} />
+    <div className="mt-1.5 flex items-center gap-1.5">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+        <motion.div
+          className="h-full rounded-full"
+          animate={{ width: `${health}%`, backgroundColor: color }}
+          transition={{ type: 'spring', bounce: 0, visualDuration: 0.4 }}
+        />
       </div>
       <span className="text-xs tabular-nums text-slate-500">❤️ {health}</span>
     </div>
