@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { GameAction, GameEvent, GameState } from '@polypoly/engine';
 import type { GameConfig, PlayerId, RoomInfo } from '@polypoly/shared';
 import { socket } from '../socket.js';
@@ -29,29 +29,39 @@ export function useRoom(): RoomHandle {
   const [events, setEvents] = useState<GameEvent[]>([]);
   const [myPlayerId, setMyPlayerId] = useState<PlayerId | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const attemptedAutoJoin = useRef(false);
-
-  const doJoin = useCallback((payload: { name?: string; playerId?: string; sessionToken?: string }) => {
-    socket.emit('join', { roomCode: 'HOME', ...payload }, (result) => {
-      if (!result.ok) {
-        setError(result.reason);
-        return;
-      }
-      setMyPlayerId(result.playerId);
-      setRoom(result.room);
-      saveSession({ playerId: result.playerId, sessionToken: result.sessionToken });
-      setError(null);
-    });
-  }, []);
+  const doJoin = useCallback(
+    (payload: { name?: string; playerId?: string; sessionToken?: string }, opts?: { auto?: boolean }) => {
+      socket.emit('join', { roomCode: 'HOME', ...payload }, (result) => {
+        if (!result.ok) {
+          // A silent rejoin that the server will not honour means the seat is
+          // gone for good — drop the dead session so the join screen comes
+          // back and asks for a name, rather than stranding the player.
+          if (opts?.auto) {
+            clearSession();
+            setMyPlayerId(null);
+            return;
+          }
+          setError(result.reason);
+          return;
+        }
+        setMyPlayerId(result.playerId);
+        setRoom(result.room);
+        saveSession({ playerId: result.playerId, sessionToken: result.sessionToken });
+        setError(null);
+      });
+    },
+    [],
+  );
 
   useEffect(() => {
+    // Runs on every connect, not just the first: socket.io reconnects on its
+    // own after a blip, but the server only rebinds a seat when a 'join'
+    // arrives. Guarding this to once per mount left the socket looking healthy
+    // while the player was still detached and unable to act.
     function onConnect() {
       setConnected(true);
-      if (!attemptedAutoJoin.current) {
-        attemptedAutoJoin.current = true;
-        const saved = loadSession();
-        if (saved) doJoin(saved);
-      }
+      const saved = loadSession();
+      if (saved) doJoin(saved, { auto: true });
     }
     function onDisconnect() {
       setConnected(false);

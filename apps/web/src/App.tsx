@@ -23,23 +23,6 @@ export default function App() {
     return <JoinScreen connected={connected} error={error} onJoin={joinAsNew} />;
   }
 
-  // `connected` only reflects this socket's own transport state. If the
-  // socket silently auto-reconnects, `connected` flips back to true even
-  // though the server never re-bound this seat (that only happens via a
-  // fresh 'join', which a bare reconnect does not send) — so also check the
-  // server's own belief about this seat, carried on every room:update.
-  const seatConnected = room.players.find((p) => p.id === myPlayerId)?.connected ?? false;
-  if (!connected || !seatConnected) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
-        <div>
-          <p className="text-lg font-medium">Disconnected</p>
-          <p className="mt-1 text-sm text-slate-400">Please refresh the page to reconnect.</p>
-        </div>
-      </div>
-    );
-  }
-
   if (room.phase === 'lobby') {
     return (
       <Lobby
@@ -61,5 +44,18 @@ export default function App() {
     );
   }
 
-  return <Controller state={gameState} events={events} myPlayerId={myPlayerId} onAction={sendAction} />;
+  return (
+    <>
+      {/* The socket reconnects and rebinds the seat on its own, so this is a
+          status line rather than a wall — the board stays usable and the strip
+          disappears by itself. Without it a dropped connection just looked
+          like the game had frozen. */}
+      {!connected && (
+        <div className="fixed inset-x-0 top-0 z-40 bg-amber-500/90 px-3 py-1 text-center text-[11px] font-medium text-slate-950">
+          Reconnecting…
+        </div>
+      )}
+      <Controller state={gameState} events={events} myPlayerId={myPlayerId} onAction={sendAction} />
+    </>
+  );
 }
