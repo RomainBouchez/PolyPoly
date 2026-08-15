@@ -45,7 +45,7 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
     side === 'left'
       ? 'bottom-[5cqmin] right-[5cqmin]'
       : side === 'right'
-        ? 'top-[5cqmin] right-[5cqmin]'
+        ? 'bottom-[5cqmin] left-[5cqmin]'
         : side === 'top'
           ? 'bottom-[5cqmin] left-[5cqmin]'
           : null;
