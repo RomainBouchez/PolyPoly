@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Gamepad2, Map } from 'lucide-react';
+import { netWorth } from '@polypoly/engine';
 import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
 import { BoardGrid } from './board/BoardGrid.js';
 import { tileIcon } from './board/BoardTile.js';
@@ -12,6 +13,7 @@ import { ActivityFeed } from './game/ActivityFeed.js';
 import { CashValue } from './game/CashValue.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
 import { IncomingTradeModal } from './game/IncomingTradeModal.js';
+import { PendingActionStrip } from './game/PendingActionBanner.js';
 import { SquatModal } from './game/SquatModal.js';
 import { TradeModal } from './game/TradeModal.js';
 import { TradePanel } from './game/TradePanel.js';
@@ -65,6 +67,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
   return (
     <MotionConfig reducedMotion="user">
       <div className="flex h-dvh flex-col overflow-hidden bg-slate-950 text-slate-100">
+        <PendingActionStrip state={state} />
         <div className="relative min-h-0 flex-1 overflow-hidden">
           <AnimatePresence initial={false}>
             {tab === 'play' ? (
@@ -181,7 +184,10 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
             </span>
             <span className="font-semibold tracking-tight">{me.name}</span>
           </div>
-          <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />
+          <div className="text-right">
+            <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />
+            <p className="text-[11px] tabular-nums text-slate-500">worth ${netWorth(state, myPlayerId).toLocaleString('en-US')}</p>
+          </div>
         </div>
         {state.config.healthMode && <HealthBar health={me.health} />}
       </div>

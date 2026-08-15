@@ -1,6 +1,7 @@
 import { MotionConfig } from 'motion/react';
 import { BoardGrid } from './board/BoardGrid.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
+import { PendingActionBanner } from './game/PendingActionBanner.js';
 import { PlayersPanel } from './game/PlayersPanel.js';
 import { useSpectator } from '../hooks/useSpectator.js';
 
@@ -32,6 +33,7 @@ export function BoardDisplay() {
                   {currentPlayer.name}'s turn
                 </p>
               )}
+              <PendingActionBanner state={gameState} />
               <div className="min-h-0 w-full flex-1 overflow-hidden">
                 <ActivityFeed events={events} state={gameState} />
               </div>

@@ -1,5 +1,5 @@
 import { motion } from 'motion/react';
-import type { GameState } from '@polypoly/engine';
+import { netWorth, type GameState } from '@polypoly/engine';
 import { CashValue } from './CashValue.js';
 
 export function PlayersPanel({ state }: { state: GameState }) {
@@ -30,6 +30,12 @@ export function PlayersPanel({ state }: { state: GameState }) {
                 </span>
                 <CashValue cash={p.cash} baseColor="#cbd5e1" className="tabular-nums" />
               </div>
+              {/* Cash alone misreads the standings — a player who has spent
+                  everything on property looks like they are losing. This is the
+                  same figure that decides the winner (see netWorth). */}
+              <p className="mt-0.5 text-right text-[11px] tabular-nums text-slate-500">
+                worth ${netWorth(state, id).toLocaleString('en-US')}
+              </p>
               {healthMode && <HealthBar health={p.health} />}
             </li>
           );
