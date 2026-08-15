@@ -38,6 +38,38 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
         : { [side]: 0, top: 0, bottom: 0, width: BAND_THICKNESS, backgroundColor: owner.color }
       : {};
 
+  // The left and right columns are short-and-wide, so the header strip that
+  // holds the badge on top/bottom tiles has almost no room. There it is
+  // pinned to a corner of the tile instead, clear of the label.
+  const isSideTile = side === 'left' || side === 'right';
+  const houseBadge =
+    ownership && tile.kind === 'property' && ownership.houses > 0 && owner ? (
+      // One "3×🏠" badge rather than one dot per house: at phone tile sizes a
+      // row of coloured dots reads as decoration, not as buildings, and four
+      // of them crowd the strip. The owner's colour stays the background so
+      // ownership is still legible at a glance.
+      <span className="flex shrink-0">
+        <AnimatePresence mode="popLayout">
+          <motion.span
+            key={ownership.houses}
+            layout
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
+            className="flex items-center gap-[0.5cqmin] rounded-[1.5cqmin] px-[1.5cqmin] py-[0.75cqmin] font-bold leading-none"
+            style={{
+              backgroundColor: owner.color,
+              color: readableTextOn(owner.color),
+              fontSize: 'clamp(5px, 7cqmin, 11px)',
+            }}
+          >
+            {ownership.houses === 5 ? '🏨' : `${ownership.houses}×🏠`}
+          </motion.span>
+        </AnimatePresence>
+      </span>
+    ) : null;
+
   return (
     <button
       type="button"
@@ -90,6 +122,16 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
         )}
       </AnimatePresence>
 
+      {/* Anchored to the tile box, not the content column, so it lands in the
+          actual corner rather than inside the column's padding. */}
+      {houseBadge && isSideTile && (
+        <span
+          className={`pointer-events-none absolute z-[4] right-[5cqmin] ${side === 'left' ? 'bottom-[5cqmin]' : 'top-[5cqmin]'}`}
+        >
+          {houseBadge}
+        </span>
+      )}
+
       {/* Content column: flag/houses strip, icon, name, price — sized off
           cqmin so nothing ever overflows or gets clipped regardless of
           how small the board renders. */}
@@ -104,33 +146,7 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             )}
             {tile.kind === 'property' && tile.healthEffect && <HealthBadge effect={tile.healthEffect} />}
           </span>
-          {ownership && tile.kind === 'property' && ownership.houses > 0 && owner && (
-            // One "3×🏠" badge rather than one dot per house: at phone tile
-            // sizes a row of coloured dots reads as decoration, not as
-            // buildings, and four of them crowd the strip. The owner's colour
-            // stays the background so ownership is still legible at a glance.
-            <span className="flex shrink-0">
-              <AnimatePresence mode="popLayout">
-                <motion.span
-                  key={ownership.houses}
-                  layout
-                  initial={{ scale: 0, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0, opacity: 0 }}
-                  transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
-                  className="flex items-center gap-[0.5cqmin] rounded-[1.5cqmin] px-[1.5cqmin] py-[0.75cqmin] font-bold leading-none"
-                  style={{
-                    backgroundColor: owner.color,
-                    color: readableTextOn(owner.color),
-                    boxShadow: '0 0 0 1px rgba(255,255,255,0.35)',
-                    fontSize: 'clamp(5px, 7cqmin, 11px)',
-                  }}
-                >
-                  {ownership.houses === 5 ? '🏨' : `${ownership.houses}×🏠`}
-                </motion.span>
-              </AnimatePresence>
-            </span>
-          )}
+          {houseBadge && !isSideTile && houseBadge}
         </div>
 
         <span className="shrink-0 text-[clamp(12px,24cqmin,26px)] leading-none">{tileIcon(tile)}</span>
