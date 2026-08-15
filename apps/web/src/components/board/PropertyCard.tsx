@@ -5,7 +5,10 @@ import {
   AIRPORT_RENT_BY_COUNT,
   EMERGENCY_FINE,
   EMERGENCY_HEALTH_THRESHOLD,
+  GO_HEALTH_BONUS,
   GO_SALARY,
+  GO_SALARY_SICK,
+  HEALTH_SICK_THRESHOLD,
   HOSPITAL_PAYOUT,
   JAIL_FINE,
   SUNNY_DAY_DURATION_MAX,
@@ -241,8 +244,16 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
           )}
 
           {tile.kind === 'go' && (
-            <div className="px-4 py-2 text-sm text-slate-300">
+            <div className="space-y-1.5 px-4 py-2 text-sm text-slate-300">
               <p>➡️ Collect ${GO_SALARY} every time you pass or land here.</p>
+              {state.config.healthMode && (
+                <>
+                  <p>
+                    🤒 While sick (health {HEALTH_SICK_THRESHOLD} or below) you only collect ${GO_SALARY_SICK}.
+                  </p>
+                  <p>❤️ Passing here also restores {GO_HEALTH_BONUS} health, sick or not.</p>
+                </>
+              )}
             </div>
           )}
 

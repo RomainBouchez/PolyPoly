@@ -164,6 +164,10 @@ export type GameAction =
       toProperties: number[];
       fromJailCards: number;
       toJailCards: number;
+      /** Set when this offer answers one made to you: the original is dropped
+       *  as this one is created, so exactly one live trade ever exists between
+       *  two players and there is no ambiguity about which you just accepted. */
+      countersTradeId?: number;
     }
   | { type: 'respond-trade'; playerId: PlayerId; tradeId: number; accept: boolean }
   | { type: 'cancel-trade'; playerId: PlayerId; tradeId: number }
@@ -208,6 +212,7 @@ export type GameEvent =
   | { type: 'trade-accepted'; tradeId: number }
   | { type: 'trade-declined'; tradeId: number }
   | { type: 'trade-cancelled'; tradeId: number }
+  | { type: 'trade-countered'; tradeId: number; newTradeId: number; fromId: PlayerId; toId: PlayerId }
   | { type: 'debt-pending'; playerId: PlayerId; creditorId: PlayerId | 'bank'; amount: number }
   | { type: 'debt-settled'; playerId: PlayerId }
   | { type: 'squat-granted'; playerId: PlayerId; buildingLevel: number }

@@ -106,6 +106,22 @@ export function applyAction(
         toJailCards: action.toJailCards,
       };
       validateTrade(draft, trade);
+      // Countering replaces rather than stacks: the offer being answered is
+      // withdrawn as this one is made, so two players never have competing
+      // versions live at once.
+      if (action.countersTradeId !== undefined) {
+        const original = findTrade(draft, action.countersTradeId);
+        if (original.toId !== action.playerId) throw new IllegalActionError('That offer was not made to you');
+        if (original.fromId !== action.toId) throw new IllegalActionError('A counter-offer must go back to whoever made it');
+        draft.pendingTrades = draft.pendingTrades.filter((t) => t.id !== original.id);
+        events.push({
+          type: 'trade-countered',
+          tradeId: original.id,
+          newTradeId: trade.id,
+          fromId: trade.fromId,
+          toId: trade.toId,
+        });
+      }
       draft.pendingTrades.push(trade);
       events.push({ type: 'trade-proposed', tradeId: trade.id, fromId: trade.fromId, toId: trade.toId });
       break;

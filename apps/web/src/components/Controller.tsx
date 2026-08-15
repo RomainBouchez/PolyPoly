@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Gamepad2, Map } from 'lucide-react';
-import type { GameAction, GameEvent, GameState, PlayerId } from '@polypoly/engine';
+import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
 import { BoardGrid } from './board/BoardGrid.js';
 import { tileIcon } from './board/BoardTile.js';
 import { GROUP_COLORS, GROUP_FLAG_SVG } from './board/tileLayout.js';
@@ -11,7 +11,9 @@ import { AlliancePanel } from './game/AlliancePanel.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { CashValue } from './game/CashValue.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
+import { IncomingTradeModal } from './game/IncomingTradeModal.js';
 import { SquatModal } from './game/SquatModal.js';
+import { TradeModal } from './game/TradeModal.js';
 import { TradePanel } from './game/TradePanel.js';
 
 interface ControllerProps {
@@ -33,6 +35,13 @@ const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
  *  same full board right here, so the whole game still works on phones alone. */
 export function Controller({ state, events, myPlayerId, onAction }: ControllerProps) {
   const [tab, setTab] = useState<Tab>('play');
+  // Offers already dismissed this session. The modal is deliberately
+  // non-blocking, so without this it would reopen on every state broadcast;
+  // the offer itself stays answerable from the Trades tab.
+  const [dismissedTrades, setDismissedTrades] = useState<number[]>([]);
+  const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
+
+  const incomingTrade = state.pendingTrades.find((t) => t.toId === myPlayerId && !dismissedTrades.includes(t.id));
 
   return (
     <MotionConfig reducedMotion="user">
@@ -94,6 +103,34 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
         <AnimatePresence>
           {state.heldSquatCards.some((h) => h.playerId === myPlayerId && h.targetTileIndex === undefined) && (
             <SquatModal key="squat" state={state} myPlayerId={myPlayerId} onAction={onAction} />
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {negotiating ? (
+            <TradeModal
+              key="counter"
+              state={state}
+              myPlayerId={myPlayerId}
+              onAction={onAction}
+              counters={negotiating}
+              onClose={() => setNegotiating(null)}
+            />
+          ) : (
+            incomingTrade && (
+              <IncomingTradeModal
+                key={`incoming-${incomingTrade.id}`}
+                state={state}
+                trade={incomingTrade}
+                myPlayerId={myPlayerId}
+                onAction={onAction}
+                onNegotiate={(t) => {
+                  setDismissedTrades((ids) => [...ids, t.id]);
+                  setNegotiating(t);
+                }}
+                onClose={() => setDismissedTrades((ids) => [...ids, incomingTrade.id])}
+              />
+            )
           )}
         </AnimatePresence>
       </div>

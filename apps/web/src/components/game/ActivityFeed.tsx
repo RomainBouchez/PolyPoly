@@ -231,6 +231,12 @@ function describeEvent(event: GameEvent, state: GameState): ReactNode {
       return `Trade #${event.tradeId} declined`;
     case 'trade-cancelled':
       return `Trade #${event.tradeId} cancelled`;
+    case 'trade-countered':
+      return (
+        <>
+          <P id={event.fromId} /> countered <P id={event.toId} />'s offer
+        </>
+      );
     case 'debt-pending':
       return (
         <>

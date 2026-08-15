@@ -1,14 +1,18 @@
 import { useState } from 'react';
 import { motion, useDragControls, type PanInfo } from 'motion/react';
 import { ArrowLeftRight, ChevronLeft, Send, X } from 'lucide-react';
-import type { GameAction, GameState, Player, PlayerId } from '@polypoly/engine';
-import { GROUP_COLORS } from '../board/tileLayout.js';
+import type { GameAction, GameState, Player, PlayerId, TradeOffer } from '@polypoly/engine';
+import { GROUP_FLAG_SVG } from '../board/tileLayout.js';
 
 interface TradeModalProps {
   state: GameState;
   myPlayerId: PlayerId;
   onAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
   onClose: () => void;
+  /** An offer made to me that this builder is answering. Its terms are loaded
+   *  in from my side of the table, and sending replaces it rather than adding
+   *  a competing offer alongside it. */
+  counters?: TradeOffer;
 }
 
 const DISMISS_OFFSET = 120;
@@ -30,15 +34,19 @@ function tileName(state: GameState, tileIndex: number): string {
 
 /** Two-step "create a trade" flow: pick who to trade with, then compose the
  *  offer with a cash slider and property chips on each side. */
-export function TradeModal({ state, myPlayerId, onAction, onClose }: TradeModalProps) {
+export function TradeModal({ state, myPlayerId, onAction, onClose, counters }: TradeModalProps) {
   const me = state.players[myPlayerId]!;
   const others = state.turnOrder.filter((id) => id !== myPlayerId && state.players[id]?.status === 'active');
 
-  const [toId, setToId] = useState<PlayerId | null>(others.length === 1 ? others[0]! : null);
-  const [fromCash, setFromCash] = useState(0);
-  const [toCash, setToCash] = useState(0);
-  const [fromProperties, setFromProperties] = useState<number[]>([]);
-  const [toProperties, setToProperties] = useState<number[]>([]);
+  // A counter-offer starts from the incoming terms with the sides swapped:
+  // what they offered me is what I would now be giving, and vice versa.
+  const [toId, setToId] = useState<PlayerId | null>(
+    counters ? counters.fromId : others.length === 1 ? others[0]! : null,
+  );
+  const [fromCash, setFromCash] = useState(counters?.toCash ?? 0);
+  const [toCash, setToCash] = useState(counters?.fromCash ?? 0);
+  const [fromProperties, setFromProperties] = useState<number[]>(counters?.toProperties ?? []);
+  const [toProperties, setToProperties] = useState<number[]>(counters?.fromProperties ?? []);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -69,6 +77,7 @@ export function TradeModal({ state, myPlayerId, onAction, onClose }: TradeModalP
       toProperties,
       fromJailCards: 0,
       toJailCards: 0,
+      ...(counters ? { countersTradeId: counters.id } : {}),
     });
     setBusy(false);
     if (!result.ok) setError(result.reason ?? 'Trade failed');
@@ -255,7 +264,10 @@ function TradeColumn({
         ) : (
           tiles.map((i) => {
             const tile = state.board.tiles[i];
-            const dot = tile?.kind === 'property' ? GROUP_COLORS[tile.group] : undefined;
+            // The board identifies a property by its country flag; a bare
+            // colour dot here meant you could not tell at a glance what was
+            // actually on the table.
+            const flagSvg = tile?.kind === 'property' ? GROUP_FLAG_SVG[tile.group] : undefined;
             const price = tile && 'price' in tile ? tile.price : undefined;
             const isSelected = selected.includes(i);
             return (
@@ -270,7 +282,12 @@ function TradeColumn({
                 }`}
               >
                 <span className="flex min-w-0 items-center gap-1.5 truncate">
-                  {dot && <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
+                  {flagSvg && (
+                    <span
+                      className="block h-2.5 w-4 shrink-0 overflow-hidden rounded-[2px] shadow-[0_0_0_1px_rgba(255,255,255,0.25)] [&>svg]:h-full [&>svg]:w-full"
+                      dangerouslySetInnerHTML={{ __html: flagSvg }}
+                    />
+                  )}
                   <span className="truncate">{tileName(state, i)}</span>
                 </span>
                 <span className="shrink-0 tabular-nums text-slate-400">${price}</span>
