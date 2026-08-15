@@ -38,10 +38,17 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
         : { [side]: 0, top: 0, bottom: 0, width: BAND_THICKNESS, backgroundColor: owner.color }
       : {};
 
-  // The left and right columns are short-and-wide, so the header strip that
-  // holds the badge on top/bottom tiles has almost no room. There it is
-  // pinned to a corner of the tile instead, clear of the label.
-  const isSideTile = side === 'left' || side === 'right';
+  // Which corner the badge is pinned to, per side. Only the bottom row keeps
+  // it inline in the header strip; everywhere else the strip is too cramped or
+  // the badge fights the label, so it moves to a corner clear of both.
+  const badgeCorner =
+    side === 'left'
+      ? 'bottom-[5cqmin] right-[5cqmin]'
+      : side === 'right'
+        ? 'top-[5cqmin] right-[5cqmin]'
+        : side === 'top'
+          ? 'bottom-[5cqmin] left-[5cqmin]'
+          : null;
   const houseBadge =
     ownership && tile.kind === 'property' && ownership.houses > 0 && owner ? (
       // One "3×🏠" badge rather than one dot per house: at phone tile sizes a
@@ -124,12 +131,8 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
 
       {/* Anchored to the tile box, not the content column, so it lands in the
           actual corner rather than inside the column's padding. */}
-      {houseBadge && isSideTile && (
-        <span
-          className={`pointer-events-none absolute z-[4] right-[5cqmin] ${side === 'left' ? 'bottom-[5cqmin]' : 'top-[5cqmin]'}`}
-        >
-          {houseBadge}
-        </span>
+      {houseBadge && badgeCorner && (
+        <span className={`pointer-events-none absolute z-[4] ${badgeCorner}`}>{houseBadge}</span>
       )}
 
       {/* Content column: flag/houses strip, icon, name, price — sized off
@@ -146,7 +149,7 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             )}
             {tile.kind === 'property' && tile.healthEffect && <HealthBadge effect={tile.healthEffect} />}
           </span>
-          {houseBadge && !isSideTile && houseBadge}
+          {!badgeCorner && houseBadge}
         </div>
 
         <span className="shrink-0 text-[clamp(12px,24cqmin,26px)] leading-none">{tileIcon(tile)}</span>
