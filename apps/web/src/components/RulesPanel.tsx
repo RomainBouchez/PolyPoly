@@ -80,10 +80,17 @@ export function RulesPanel({ config, editable, onChange }: RulesPanelProps) {
           />
           <Toggle
             label="Health mode"
-            description="Some tiles cost or restore health, rolling 1-1 makes you sick and pays hospital owners, and Go withholds cash while you're sick"
+            description="Some tiles cost or restore health, rolling 1-1 makes you sick and pays hospital owners, jail wears you down, and Go pays half while you're sick"
             checked={config.healthMode}
             disabled={!editable}
             onChange={(v) => set({ healthMode: v })}
+          />
+          <Toggle
+            label="One trade at a time"
+            description="A player can only be in one pending trade, as proposer or recipient — keeps trading from crowding out the rest of the game"
+            checked={config.oneTradeAtATime}
+            disabled={!editable}
+            onChange={(v) => set({ oneTradeAtATime: v })}
           />
           <Toggle
             label="Squat cards"

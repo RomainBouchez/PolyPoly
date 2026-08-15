@@ -29,6 +29,10 @@ export interface GameConfig {
   /** While in jail, a player may take one opponent's property hostage —
    *  voiding its rent — until they get out of jail. */
   hostageMode: boolean;
+  /** A player may only be involved in one pending trade at a time, as
+   *  proposer or as recipient. Without it trading crowds out the rest of the
+   *  game, and one player can be buried under simultaneous offers. */
+  oneTradeAtATime: boolean;
   /** Chance/Community cards can grant a Squat pass — skip paying rent once
    *  on a property matching a randomly assigned building level, but never
    *  twice against the same opponent. Blocked while sick (health mode). */
@@ -59,6 +63,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   allianceMode: false,
   rainyDay: false,
   hostageMode: false,
+  oneTradeAtATime: true,
   squatCards: true,
   maxPlayers: 8,
   startingCash: 1500,

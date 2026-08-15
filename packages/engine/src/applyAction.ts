@@ -105,7 +105,7 @@ export function applyAction(
         fromJailCards: action.fromJailCards,
         toJailCards: action.toJailCards,
       };
-      validateTrade(draft, trade);
+      validateTrade(draft, trade, action.countersTradeId);
       // Countering replaces rather than stacks: the offer being answered is
       // withdrawn as this one is made, so two players never have competing
       // versions live at once.

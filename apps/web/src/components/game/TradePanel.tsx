@@ -25,6 +25,7 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
 
   const incoming = state.pendingTrades.filter((t) => t.toId === myPlayerId);
   const outgoing = state.pendingTrades.filter((t) => t.fromId === myPlayerId);
+  const busy = state.config.oneTradeAtATime && incoming.length + outgoing.length > 0;
 
   return (
     <div className="rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
@@ -82,6 +83,12 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
 
       {others.length === 0 ? (
         <p className="text-sm text-slate-500">No one to trade with</p>
+      ) : busy ? (
+        // Say why rather than showing a button that would be refused — the
+        // offer above is the thing to deal with first.
+        <p className="rounded-lg bg-white/5 px-2 py-2 text-center text-xs text-slate-400 ring-1 ring-inset ring-white/10">
+          Finish the trade above before starting another
+        </p>
       ) : (
         <motion.button
           onClick={() => setModalOpen(true)}

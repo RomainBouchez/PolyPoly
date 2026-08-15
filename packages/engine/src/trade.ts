@@ -1,11 +1,25 @@
 import { IllegalActionError } from './errors.js';
 import type { GameState, TradeOffer } from './types.js';
 
-export function validateTrade(state: GameState, trade: Omit<TradeOffer, 'id'>): void {
+/**
+ * @param supersedesTradeId An offer this one replaces, excluded from the
+ *   one-at-a-time check — a counter-offer must not be blocked by the very
+ *   trade it is answering.
+ */
+export function validateTrade(state: GameState, trade: Omit<TradeOffer, 'id'>, supersedesTradeId?: number): void {
   const from = state.players[trade.fromId];
   const to = state.players[trade.toId];
   if (!from || !to) throw new IllegalActionError('Unknown player in trade');
   if (trade.fromId === trade.toId) throw new IllegalActionError('Cannot trade with yourself');
+
+  // Counted on both sides, not just the proposer's: otherwise one player can
+  // be buried under simultaneous offers while technically obeying the rule.
+  if (state.config.oneTradeAtATime) {
+    const live = state.pendingTrades.filter((t) => t.id !== supersedesTradeId);
+    const busy = (id: string) => live.some((t) => t.fromId === id || t.toId === id);
+    if (busy(trade.fromId)) throw new IllegalActionError('Finish your current trade before starting another');
+    if (busy(trade.toId)) throw new IllegalActionError(`${to.name} is already in a trade`);
+  }
   if (from.cash < trade.fromCash) throw new IllegalActionError('Proposer cannot cover the offered cash');
   if (to.cash < trade.toCash) throw new IllegalActionError('Recipient cannot cover the requested cash');
   if (from.getOutOfJailFreeCards < trade.fromJailCards) throw new IllegalActionError('Proposer does not have that many jail cards');

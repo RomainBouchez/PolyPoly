@@ -115,3 +115,74 @@ describe('counter-offers', () => {
     expect(offered.pendingTrades.map((t) => t.id)).toEqual([originalId]);
   });
 });
+
+describe('one trade at a time', () => {
+  function twoPropertiesEach() {
+    const state = freshState();
+    state.ownership[PORTO] = { ownerId: P1, houses: 0, mortgaged: false };
+    state.ownership[LISBON] = { ownerId: P2, houses: 0, mortgaged: false };
+    state.ownership[8] = { ownerId: P3, houses: 0, mortgaged: false }; // Poros
+    return state;
+  }
+
+  const offer = (from: string, to: string, give: number[], take: number[]) =>
+    ({
+      type: 'propose-trade' as const,
+      playerId: from,
+      toId: to,
+      fromCash: 0,
+      toCash: 0,
+      fromProperties: give,
+      toProperties: take,
+      fromJailCards: 0,
+      toJailCards: 0,
+    });
+
+  it('blocks a second offer from the same proposer', () => {
+    const state = applyAction(twoPropertiesEach(), offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    expect(() => applyAction(state, offer(P1, P3, [PORTO], [8]), rng)).toThrow();
+  });
+
+  // Counted on the recipient too, so one player cannot be buried under offers.
+  it('blocks an offer aimed at someone already in a trade', () => {
+    const state = applyAction(twoPropertiesEach(), offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    expect(() => applyAction(state, offer(P3, P2, [8], [LISBON]), rng)).toThrow();
+  });
+
+  it('still allows a counter-offer, which replaces rather than adds', () => {
+    const state = applyAction(twoPropertiesEach(), offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    const originalId = state.pendingTrades[0]!.id;
+
+    const { state: next } = applyAction(
+      state,
+      { ...offer(P2, P1, [LISBON], [PORTO]), countersTradeId: originalId },
+      rng,
+    );
+
+    expect(next.pendingTrades).toHaveLength(1);
+    expect(next.pendingTrades[0]!.fromId).toBe(P2);
+  });
+
+  it('frees both players once the trade resolves', () => {
+    const state = applyAction(twoPropertiesEach(), offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    const id = state.pendingTrades[0]!.id;
+    const after = applyAction(state, { type: 'respond-trade', playerId: P2, tradeId: id, accept: false }, rng).state;
+
+    expect(() => applyAction(after, offer(P1, P3, [PORTO], [8]), rng)).not.toThrow();
+  });
+
+  it('leaves uninvolved players free to trade with each other', () => {
+    const state = applyAction(twoPropertiesEach(), offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    // P3 has no live trade, but every other player does — nobody left to pair
+    // with, so this is the boundary the rule deliberately draws.
+    expect(state.pendingTrades).toHaveLength(1);
+  });
+
+  it('does nothing when the rule is switched off', () => {
+    const base = twoPropertiesEach();
+    base.config.oneTradeAtATime = false;
+    const state = applyAction(base, offer(P1, P2, [PORTO], [LISBON]), rng).state;
+    const { state: next } = applyAction(state, offer(P1, P3, [PORTO], [8]), rng);
+    expect(next.pendingTrades).toHaveLength(2);
+  });
+});
