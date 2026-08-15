@@ -153,6 +153,12 @@ function describeEvent(event: GameEvent, state: GameState): ReactNode {
           {event.cashPaid > 0 && <>, ${event.cashPaid} in hospital fees</>}
         </>
       );
+    case 'jail-health-lost':
+      return (
+        <>
+          <P id={event.playerId} /> is worn down by jail — -{event.amount} health
+        </>
+      );
     case 'landed-on-vacation':
       return (
         <>

@@ -20,6 +20,11 @@ export const ILLNESS_PENALTY_DOUBLE = 30;
  *  now: owning the set is still clearly worth it without being crushing. */
 export const HOSPITAL_PAYOUT = [25, 50, 90];
 export const GO_HEALTH_BONUS = 5;
+/** Health lost for each turn spent sitting in jail, so jail costs more than
+ *  tempo. Capped in practice by MAX_JAIL_TURNS — 9 health over a full stay,
+ *  under half an illness, so it only tips a player into the sick zone if they
+ *  were already close to it. */
+export const JAIL_HEALTH_DRAIN = 3;
 export const PHARMACY_RESET_HEALTH = 50;
 
 export const ALLIANCE_DURATION_TURNS = 3;

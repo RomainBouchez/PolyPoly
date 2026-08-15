@@ -21,6 +21,7 @@ import {
   ILLNESS_PENALTY,
   ILLNESS_PENALTY_DOUBLE,
   JAIL_FINE,
+  JAIL_HEALTH_DRAIN,
   MAX_JAIL_TURNS,
   PHARMACY_RESET_HEALTH,
   SUNNY_DAY_DURATION_MIN,
@@ -298,6 +299,16 @@ function handleRollForJail(draft: GameState, playerId: PlayerId, rng: Rng, event
 
   if (!isDouble) {
     player.jailTurns += 1;
+    // Sitting in jail wears you down. Emitted as its own event rather than
+    // quietly adjusting health — an unexplained drop is indistinguishable
+    // from a bug to whoever is playing.
+    if (draft.config.healthMode) {
+      const lost = Math.min(JAIL_HEALTH_DRAIN, player.health);
+      if (lost > 0) {
+        player.health -= lost;
+        events.push({ type: 'jail-health-lost', playerId, amount: lost });
+      }
+    }
     if (player.jailTurns >= MAX_JAIL_TURNS) {
       if (player.cash >= JAIL_FINE) player.cash -= JAIL_FINE;
       player.inJail = false;

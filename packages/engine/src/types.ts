@@ -194,6 +194,7 @@ export type GameEvent =
   // the feed can say where the money went — it used to move with no event
   // mentioning it at all, which read as cash vanishing for no reason.
   | { type: 'illness'; playerId: PlayerId; healthLoss: number; doublePeine: boolean; cashPaid: number }
+  | { type: 'jail-health-lost'; playerId: PlayerId; amount: number }
   | { type: 'house-built'; playerId: PlayerId; tileIndex: number; houses: number }
   | { type: 'house-sold'; playerId: PlayerId; tileIndex: number; houses: number }
   | { type: 'mortgaged'; playerId: PlayerId; tileIndex: number; amount: number }

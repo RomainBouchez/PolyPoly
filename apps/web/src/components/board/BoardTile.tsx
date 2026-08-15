@@ -105,33 +105,29 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             {tile.kind === 'property' && tile.healthEffect && <HealthBadge effect={tile.healthEffect} />}
           </span>
           {ownership && tile.kind === 'property' && ownership.houses > 0 && owner && (
-            <span className="flex shrink-0 gap-[1.5cqmin]">
+            // One "3×🏠" badge rather than one dot per house: at phone tile
+            // sizes a row of coloured dots reads as decoration, not as
+            // buildings, and four of them crowd the strip. The owner's colour
+            // stays the background so ownership is still legible at a glance.
+            <span className="flex shrink-0">
               <AnimatePresence mode="popLayout">
-                {ownership.houses === 5 ? (
-                  <motion.span
-                    key="hotel"
-                    layout
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0, opacity: 0 }}
-                    transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
-                    className="block h-[8cqmin] w-[8cqmin] rounded-[1.5cqmin]"
-                    style={{ backgroundColor: owner.color, boxShadow: '0 0 0 1px rgba(255,255,255,0.35)' }}
-                  />
-                ) : (
-                  Array.from({ length: ownership.houses }).map((_, i) => (
-                    <motion.span
-                      key={i}
-                      layout
-                      initial={{ scale: 0, opacity: 0 }}
-                      animate={{ scale: 1, opacity: 1 }}
-                      exit={{ scale: 0, opacity: 0 }}
-                      transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
-                      className="block h-[6cqmin] w-[6cqmin] rounded-full"
-                      style={{ backgroundColor: owner.color, boxShadow: '0 0 0 1px rgba(255,255,255,0.35)' }}
-                    />
-                  ))
-                )}
+                <motion.span
+                  key={ownership.houses}
+                  layout
+                  initial={{ scale: 0, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0, opacity: 0 }}
+                  transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
+                  className="flex items-center gap-[0.5cqmin] rounded-[1.5cqmin] px-[1.5cqmin] py-[0.75cqmin] font-bold leading-none"
+                  style={{
+                    backgroundColor: owner.color,
+                    color: readableTextOn(owner.color),
+                    boxShadow: '0 0 0 1px rgba(255,255,255,0.35)',
+                    fontSize: 'clamp(5px, 7cqmin, 11px)',
+                  }}
+                >
+                  {ownership.houses === 5 ? '🏨' : `${ownership.houses}×🏠`}
+                </motion.span>
               </AnimatePresence>
             </span>
           )}
@@ -262,6 +258,20 @@ function HealthBadge({ effect }: { effect: { healthDelta: number; pharmacy?: boo
       dangerouslySetInnerHTML={{ __html: positive ? HEALTH_BONUS_SVG : HEALTH_MALUS_SVG }}
     />
   );
+}
+
+/** Black or white, whichever stays readable on a player's token colour. The
+ *  palette spans deep violet to bright yellow, so a fixed choice fails at one
+ *  end or the other — picked by relative luminance (WCAG sRGB). */
+function readableTextOn(hex: string): string {
+  const raw = hex.replace('#', '');
+  if (raw.length !== 6) return '#ffffff';
+  const channel = (offset: number) => {
+    const c = parseInt(raw.slice(offset, offset + 2), 16) / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4);
+  return luminance > 0.4 ? '#0b1019' : '#ffffff';
 }
 
 function tileName(tile: Tile): string {

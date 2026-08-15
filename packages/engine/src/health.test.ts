@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from './applyAction.js';
-import { GO_SALARY_SICK } from './rules.js';
+import { GO_SALARY_SICK, JAIL_HEALTH_DRAIN } from './rules.js';
 import { freshState, P1, P2, scriptedRng } from './testUtils.js';
 
 // Board indices used below (see data/board.europe.ts):
@@ -156,5 +156,58 @@ describe('Go bonus interaction with health', () => {
 
     const { state: next } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));
     expect(next.players[P1]!.cash).toBe(1500 + 200);
+  });
+});
+
+describe('jail health drain', () => {
+  function jailed(health: number, config = { healthMode: true }) {
+    const state = freshState(config);
+    state.players[P1]!.inJail = true;
+    state.players[P1]!.jailTurns = 0;
+    state.players[P1]!.health = health;
+    state.phase = { type: 'awaiting-jail-decision', playerId: P1 };
+    return state;
+  }
+
+  it('costs health for a turn spent in jail, and says so', () => {
+    const { state: next, events } = applyAction(jailed(50), { type: 'roll-for-jail', playerId: P1 }, scriptedRng([1, 2]));
+
+    expect(next.players[P1]!.health).toBe(50 - JAIL_HEALTH_DRAIN);
+    expect(events.some((e) => e.type === 'jail-health-lost' && e.amount === JAIL_HEALTH_DRAIN)).toBe(true);
+  });
+
+  it('does not drain when the player rolls doubles and walks straight out', () => {
+    const { state: next, events } = applyAction(jailed(50), { type: 'roll-for-jail', playerId: P1 }, scriptedRng([2, 2]));
+
+    expect(next.players[P1]!.inJail).toBe(false);
+    expect(next.players[P1]!.health).toBe(50);
+    expect(events.some((e) => e.type === 'jail-health-lost')).toBe(false);
+  });
+
+  it('never drives health below zero', () => {
+    const { state: next } = applyAction(jailed(2), { type: 'roll-for-jail', playerId: P1 }, scriptedRng([1, 2]));
+    expect(next.players[P1]!.health).toBe(0);
+  });
+
+  it('does nothing when healthMode is off', () => {
+    const state = jailed(50, { healthMode: false });
+    const { state: next, events } = applyAction(state, { type: 'roll-for-jail', playerId: P1 }, scriptedRng([1, 2]));
+
+    expect(next.players[P1]!.health).toBe(50);
+    expect(events.some((e) => e.type === 'jail-health-lost')).toBe(false);
+  });
+
+  it('costs at most one full stay — 3 turns, 9 health', () => {
+    let state = jailed(50);
+    let total = 0;
+    for (let turn = 0; turn < 3; turn++) {
+      const r = applyAction(state, { type: 'roll-for-jail', playerId: P1 }, scriptedRng([1, 2]));
+      total += r.events.filter((e) => e.type === 'jail-health-lost').length;
+      state = r.state;
+      state.phase = { type: 'awaiting-jail-decision', playerId: P1 };
+    }
+    expect(total).toBe(3);
+    expect(state.players[P1]!.health).toBe(50 - 3 * JAIL_HEALTH_DRAIN);
+    expect(state.players[P1]!.inJail).toBe(false); // released after MAX_JAIL_TURNS
   });
 });
