@@ -252,7 +252,11 @@ function TradeColumn({
           max={player.cash}
           value={Math.min(cash, player.cash)}
           onChange={(e) => onCash(Number(e.target.value))}
-          className="w-full cursor-pointer appearance-none rounded-full bg-white/10 accent-violet-500 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-thumb]:mt-[-5px] [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow"
+          // A 28px thumb on an 8px track: the old 16px thumb was well under a
+          // thumb-sized touch target, which made setting an amount fiddly. The
+          // track colour moved onto the track pseudo-elements so the taller
+          // input box does not paint as one fat bar behind it.
+          className="h-7 w-full cursor-pointer appearance-none bg-transparent accent-violet-500 [&::-moz-range-thumb]:h-7 [&::-moz-range-thumb]:w-7 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:bg-white [&::-moz-range-thumb]:shadow-lg [&::-moz-range-track]:h-2 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-white/10 [&::-webkit-slider-runnable-track]:h-2 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-white/10 [&::-webkit-slider-thumb]:mt-[-10px] [&::-webkit-slider-thumb]:h-7 [&::-webkit-slider-thumb]:w-7 [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-white [&::-webkit-slider-thumb]:shadow-lg [&::-webkit-slider-thumb]:ring-2 [&::-webkit-slider-thumb]:ring-violet-500/50"
         />
       </div>
       <span className="rounded-full bg-violet-500/15 px-2.5 py-0.5 text-xs font-semibold tabular-nums text-violet-200 ring-1 ring-inset ring-violet-500/30">
