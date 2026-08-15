@@ -1,10 +1,19 @@
 import { useState } from 'react';
 import { useAdmin } from '../hooks/useAdmin.js';
 
+const SQUAT_LEVELS = [
+  { value: 1, label: '1 house' },
+  { value: 2, label: '2 houses' },
+  { value: 3, label: '3 houses' },
+  { value: 5, label: 'Hotel' },
+];
+
 export function AdminPage() {
-  const { connected, room, config, resetGame, kickPlayer } = useAdmin();
+  const { connected, room, config, resetGame, kickPlayer, grantSquat } = useAdmin();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [squatPlayerId, setSquatPlayerId] = useState('');
+  const [squatLevel, setSquatLevel] = useState(SQUAT_LEVELS[0]!.value);
 
   async function handleReset() {
     if (!confirm('Reset the game and send everyone back to the lobby?')) return;
@@ -20,6 +29,15 @@ export function AdminPage() {
     const result = await kickPlayer(playerId);
     setBusy(false);
     setMessage(result.ok ? `${name} kicked.` : (result.reason ?? 'Kick failed'));
+  }
+
+  async function handleGrantSquat() {
+    if (!squatPlayerId) return;
+    setBusy(true);
+    const result = await grantSquat(squatPlayerId, squatLevel);
+    setBusy(false);
+    const levelLabel = SQUAT_LEVELS.find((l) => l.value === squatLevel)?.label;
+    setMessage(result.ok ? `Squat pass (${levelLabel}) granted.` : (result.reason ?? 'Grant failed'));
   }
 
   return (
@@ -58,6 +76,50 @@ export function AdminPage() {
             </ul>
           )}
         </div>
+
+        {room?.phase === 'playing' && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Grant Squat pass <span className="normal-case text-slate-500">— testing shortcut</span>
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={squatPlayerId}
+                onChange={(e) => setSquatPlayerId(e.target.value)}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
+              >
+                <option value="">Player…</option>
+                {room.players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={squatLevel}
+                onChange={(e) => setSquatLevel(Number(e.target.value))}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
+              >
+                {SQUAT_LEVELS.map((l) => (
+                  <option key={l.value} value={l.value}>
+                    {l.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={busy || !squatPlayerId}
+                onClick={handleGrantSquat}
+                className="rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Grant
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-600">
+              Skips "land on Chance, draw the card" — the player can then squat any opponent property matching this
+              level.
+            </p>
+          </div>
+        )}
 
         <button
           disabled={busy || !room}

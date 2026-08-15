@@ -1,6 +1,8 @@
 import type { GameConfig } from '@polypoly/shared';
 import type { Card, CardDeckName, DeckState } from './cards.types.js';
 import { customsDeck, travelDeck } from './data/cards.js';
+
+export { SQUAT_CARD_ID } from './data/cards.js';
 import type { Rng } from './rng.js';
 
 const CARD_BY_ID: Record<string, Card> = Object.fromEntries(

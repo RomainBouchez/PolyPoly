@@ -30,6 +30,7 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
       status: 'active',
       health: HEALTH_START,
       pharmacyUsed: false,
+      squattedPlayerIds: [],
     };
   }
 
@@ -55,6 +56,7 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
     bank: { housesRemaining: 32, hotelsRemaining: 12 },
     decks: createInitialDecks(rng, config),
     heldJailCards: [],
+    heldSquatCards: [],
     pendingTrades: [],
     nextTradeId: 1,
     alliances: [],

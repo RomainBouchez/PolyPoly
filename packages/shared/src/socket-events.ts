@@ -30,6 +30,9 @@ export interface ClientToServerEvents {
   /** Admin controls — no auth beyond being on the LAN, matching the rest of this app. */
   'admin:reset': (ack: (result: { ok: boolean; reason?: string }) => void) => void;
   'admin:kick': (playerId: PlayerId, ack: (result: { ok: boolean; reason?: string }) => void) => void;
+  /** Testing helper: grants a Squat charge directly, skipping the "land on
+   *  Chance, draw the card" chain. buildingLevel is 1, 2, 3, or 5 (hotel). */
+  'admin:grant-squat': (playerId: PlayerId, buildingLevel: number, ack: (result: { ok: boolean; reason?: string }) => void) => void;
 }
 
 export interface ServerToClientEvents {

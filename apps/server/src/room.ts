@@ -5,6 +5,7 @@ import {
   createRng,
   getLegalActions,
   IllegalActionError,
+  SQUAT_CARD_ID,
   type GameAction,
   type GameEvent,
   type GameState,
@@ -189,6 +190,21 @@ export class Room {
     return this.runAction(action);
   }
 
+  /** Testing/dev helper for the host — grants a Squat charge directly,
+   *  skipping the "land on Chance, draw the card" chain during a play session. */
+  grantSquat(playerId: PlayerId, buildingLevel: number): GameEvent[] {
+    if (this.phase !== 'playing' || !this.gameState) {
+      throw new IllegalActionError('No game in progress');
+    }
+    if (!this.gameState.players[playerId]) throw new IllegalActionError('Player not found');
+    if (![1, 2, 3, 5].includes(buildingLevel)) throw new IllegalActionError('Invalid building level');
+
+    const next = structuredClone(this.gameState);
+    next.heldSquatCards.push({ cardId: SQUAT_CARD_ID, deck: 'travel', playerId, buildingLevel });
+    this.gameState = next;
+    return [{ type: 'squat-granted', playerId, buildingLevel }];
+  }
+
   /** Server-driven, not tied to any player — checked on a timer for time-limit games. */
   tickTimeLimit(elapsedMinutes: number): { events: GameEvent[] } {
     if (this.phase !== 'playing' || !this.gameState || !this.rng) return { events: [] };
@@ -223,10 +239,13 @@ export class Room {
     const room = new Room();
     room.code = snapshot.code;
     room.phase = snapshot.phase;
-    room.config = snapshot.config;
+    // Merge over defaults so a snapshot saved before a new config field
+    // existed (e.g. squatCards) still loads with a sane value instead of
+    // undefined.
+    room.config = { ...DEFAULT_GAME_CONFIG, ...snapshot.config };
     room.seed = snapshot.seed;
     room.startedAt = snapshot.startedAt;
-    room.gameState = snapshot.gameState;
+    room.gameState = migrateGameState(snapshot.gameState);
     for (const seated of snapshot.players) {
       room.players.set(seated.identity.id, { ...seated, socketId: null, identity: { ...seated.identity, connected: false } });
     }
@@ -235,4 +254,18 @@ export class Room {
     if (room.phase === 'playing') room.rng = createRng(Date.now() >>> 0);
     return room;
   }
+}
+
+/** Backfills fields added after this snapshot may have been saved (e.g. the
+ *  Squat mechanic's heldSquatCards / squattedPlayerIds), so an in-progress
+ *  game surviving a server restart doesn't crash on the first missing array. */
+function migrateGameState(state: GameState | null): GameState | null {
+  if (!state) return state;
+  return {
+    ...state,
+    heldSquatCards: state.heldSquatCards ?? [],
+    players: Object.fromEntries(
+      Object.entries(state.players).map(([id, player]) => [id, { ...player, squattedPlayerIds: player.squattedPlayerIds ?? [] }]),
+    ),
+  };
 }

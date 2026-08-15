@@ -2,6 +2,11 @@ import type { Card } from '../cards.types.js';
 
 // Text is placeholder and meant to be rewritten. Effects are what the engine reads.
 
+/** The travel-deck card granting a Squat pass. Held passes round-trip through
+ *  findCardById() when resolved, so anything minting one outside a real draw
+ *  (the host's dev helper, tests) must reference this exact id. */
+export const SQUAT_CARD_ID = 'travel-18';
+
 export const travelDeck: Card[] = [
   { id: 'travel-01', text: 'Flight upgrade! Collect $50.', effect: { type: 'collect', amount: 50 } },
   { id: 'travel-02', text: 'Lost luggage. Pay $50.', effect: { type: 'pay', amount: 50 } },
@@ -20,6 +25,7 @@ export const travelDeck: Card[] = [
   { id: 'travel-15', text: 'Bonus miles. Move forward 4 spaces.', effect: { type: 'move-relative', steps: 4 } },
   { id: 'travel-16', text: 'Refund from a cancelled tour. Collect $75.', effect: { type: 'collect', amount: 75 } },
   { id: 'travel-17', text: 'Chance encounter — form a temporary alliance with a fellow traveler for 3 turns!', effect: { type: 'form-alliance' }, requiresConfig: 'allianceMode' },
+  { id: SQUAT_CARD_ID, text: "Squat pass! Stay free at a matching opponent's property, once.", effect: { type: 'grant-squat' } },
 ];
 
 export const customsDeck: Card[] = [
@@ -39,4 +45,5 @@ export const customsDeck: Card[] = [
   { id: 'customs-14', text: 'Fast-track security. Move forward 3 spaces.', effect: { type: 'move-relative', steps: 3 } },
   { id: 'customs-15', text: 'Diplomatic immunity. Collect $50.', effect: { type: 'collect', amount: 50 } },
   { id: 'customs-16', text: 'Customs fine. Pay $80.', effect: { type: 'pay', amount: 80 } },
+  { id: 'customs-17', text: "Squat pass! Stay free at a matching opponent's property, once.", effect: { type: 'grant-squat' } },
 ];

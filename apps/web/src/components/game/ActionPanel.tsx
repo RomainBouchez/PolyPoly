@@ -74,7 +74,6 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
           You owe ${state.phase.amount} — pay up or go bankrupt.
         </p>
       )}
-
       <div className="flex flex-wrap justify-center gap-2">
         {legal.map((action) => {
           if (action.type === 'auction-bid') {

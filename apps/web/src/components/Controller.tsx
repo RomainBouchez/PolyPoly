@@ -10,6 +10,7 @@ import { ActionPanel } from './game/ActionPanel.js';
 import { AlliancePanel } from './game/AlliancePanel.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
+import { SquatModal } from './game/SquatModal.js';
 import { TradePanel } from './game/TradePanel.js';
 
 interface ControllerProps {
@@ -88,6 +89,12 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
             );
           })}
         </nav>
+
+        <AnimatePresence>
+          {state.heldSquatCards.some((h) => h.playerId === myPlayerId && h.targetTileIndex === undefined) && (
+            <SquatModal key="squat" state={state} myPlayerId={myPlayerId} onAction={onAction} />
+          )}
+        </AnimatePresence>
       </div>
     </MotionConfig>
   );

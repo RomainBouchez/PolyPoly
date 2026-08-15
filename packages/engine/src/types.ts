@@ -17,6 +17,10 @@ export interface Player {
   /** 0-100. Only meaningful when config.healthMode is on. */
   health: number;
   pharmacyUsed: boolean;
+  /** Opponents this player has already used a Squat charge against — a
+   *  given opponent can only ever be squatted once, even across multiple
+   *  Squat cards drawn over the game. */
+  squattedPlayerIds: PlayerId[];
 }
 
 export interface Ownership {
@@ -71,6 +75,20 @@ export interface HostageState {
   ownerId: PlayerId;
 }
 
+/** A held Squat pass, tracked the same way as a jail card so it can be
+ *  returned to its exact deck's discard pile when resolved. `buildingLevel`
+ *  is rolled once at draw time: 1, 2, 3 houses, or 5 (hotel). The holder must
+ *  pick a `targetTileIndex` (via `use-squat-on`) or skip it (`skip-squat`) —
+ *  undefined means the pass is still awaiting that choice. Once targeted,
+ *  landing there waives rent automatically; no further decision is needed. */
+export interface HeldSquatCard {
+  cardId: string;
+  deck: CardDeckName;
+  playerId: PlayerId;
+  buildingLevel: number;
+  targetTileIndex?: number;
+}
+
 export interface TradeOffer {
   id: number;
   fromId: PlayerId;
@@ -114,6 +132,7 @@ export interface GameState {
   bank: BankState;
   decks: Record<CardDeckName, DeckState>;
   heldJailCards: HeldJailCard[];
+  heldSquatCards: HeldSquatCard[];
   pendingTrades: TradeOffer[];
   nextTradeId: number;
   alliances: Alliance[];
@@ -150,9 +169,11 @@ export type GameAction =
   | { type: 'cancel-trade'; playerId: PlayerId; tradeId: number }
   | { type: 'pay-debt'; playerId: PlayerId }
   | { type: 'declare-bankruptcy'; playerId: PlayerId }
-  | { type: 'check-time-limit'; elapsedMinutes: number }
   | { type: 'transfer-health'; playerId: PlayerId; toId: PlayerId; amount: number }
-  | { type: 'take-hostage'; playerId: PlayerId; tileIndex: number };
+  | { type: 'take-hostage'; playerId: PlayerId; tileIndex: number }
+  | { type: 'use-squat-on'; playerId: PlayerId; tileIndex: number }
+  | { type: 'skip-squat'; playerId: PlayerId }
+  | { type: 'check-time-limit'; elapsedMinutes: number };
 
 export type GameEvent =
   | { type: 'rolled'; playerId: PlayerId; dice: [number, number] }
@@ -185,6 +206,10 @@ export type GameEvent =
   | { type: 'trade-cancelled'; tradeId: number }
   | { type: 'debt-pending'; playerId: PlayerId; creditorId: PlayerId | 'bank'; amount: number }
   | { type: 'debt-settled'; playerId: PlayerId }
+  | { type: 'squat-granted'; playerId: PlayerId; buildingLevel: number }
+  | { type: 'squat-target-chosen'; playerId: PlayerId; targetId: PlayerId; tileIndex: number }
+  | { type: 'squat-skipped'; playerId: PlayerId }
+  | { type: 'squatted'; playerId: PlayerId; targetId: PlayerId; tileIndex: number }
   | { type: 'bankrupt'; playerId: PlayerId; creditorId: PlayerId | 'bank' }
   | { type: 'turn-ended'; playerId: PlayerId; nextPlayerId: PlayerId }
   | { type: 'game-over'; winnerId: PlayerId }

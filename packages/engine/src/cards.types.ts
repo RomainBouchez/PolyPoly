@@ -9,7 +9,8 @@ export type CardEffect =
   | { type: 'get-out-of-jail-free' }
   | { type: 'pay-each-player'; amount: number }
   | { type: 'collect-from-each-player'; amount: number }
-  | { type: 'form-alliance' };
+  | { type: 'form-alliance' }
+  | { type: 'grant-squat' };
 
 export interface Card {
   id: string;

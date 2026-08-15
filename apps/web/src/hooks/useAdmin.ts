@@ -8,6 +8,7 @@ export interface AdminHandle {
   config: GameConfig | null;
   resetGame: () => Promise<{ ok: boolean; reason?: string }>;
   kickPlayer: (playerId: PlayerId) => Promise<{ ok: boolean; reason?: string }>;
+  grantSquat: (playerId: PlayerId, buildingLevel: number) => Promise<{ ok: boolean; reason?: string }>;
 }
 
 /** Watches the room like the board display does — no join, just observes —
@@ -53,5 +54,11 @@ export function useAdmin(): AdminHandle {
     });
   }, []);
 
-  return { connected, room, config, resetGame, kickPlayer };
+  const grantSquat = useCallback((playerId: PlayerId, buildingLevel: number) => {
+    return new Promise<{ ok: boolean; reason?: string }>((resolve) => {
+      socket.emit('admin:grant-squat', playerId, buildingLevel, resolve);
+    });
+  }, []);
+
+  return { connected, room, config, resetGame, kickPlayer, grantSquat };
 }

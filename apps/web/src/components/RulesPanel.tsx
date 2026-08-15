@@ -85,6 +85,13 @@ export function RulesPanel({ config, editable, onChange }: RulesPanelProps) {
             disabled={!editable}
             onChange={(v) => set({ healthMode: v })}
           />
+          <Toggle
+            label="Squat cards"
+            description="Chance/Community cards can grant a free stay on a matching opponent property — once per opponent, blocked while sick"
+            checked={config.squatCards}
+            disabled={!editable}
+            onChange={(v) => set({ squatCards: v })}
+          />
         </div>
       </section>
 

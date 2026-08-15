@@ -29,6 +29,10 @@ export interface GameConfig {
   /** While in jail, a player may take one opponent's property hostage —
    *  voiding its rent — until they get out of jail. */
   hostageMode: boolean;
+  /** Chance/Community cards can grant a Squat pass — skip paying rent once
+   *  on a property matching a randomly assigned building level, but never
+   *  twice against the same opponent. Blocked while sick (health mode). */
+  squatCards: boolean;
 
   maxPlayers: number;
   startingCash: number;
@@ -55,6 +59,7 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   allianceMode: false,
   rainyDay: false,
   hostageMode: false,
+  squatCards: true,
   maxPlayers: 8,
   startingCash: 1500,
   endCondition: { type: 'last-standing' },

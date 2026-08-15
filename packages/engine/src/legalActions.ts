@@ -1,6 +1,6 @@
 import { BID_INCREMENT } from './auction.js';
 import { getOwnableTile, groupTiles } from './board.js';
-import { JAIL_FINE, ownsFullGroup } from './rules.js';
+import { HEALTH_SICK_THRESHOLD, JAIL_FINE, ownsFullGroup } from './rules.js';
 import type { GameAction, GameState, PlayerId } from './types.js';
 
 function canBuildHouse(state: GameState, playerId: PlayerId, tileIndex: number): boolean {
@@ -90,6 +90,30 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
     }
     if (canBuildHouse(state, playerId, tileIndex)) actions.push({ type: 'build-house', playerId, tileIndex });
     if (canSellHouse(state, tileIndex)) actions.push({ type: 'sell-house', playerId, tileIndex });
+  }
+
+  // A drawn Squat pass demands an immediate target-or-skip decision — also
+  // available any time, not gated to whoever's turn it is right now.
+  const undecided = state.heldSquatCards.filter((h) => h.playerId === playerId && h.targetTileIndex === undefined);
+  if (undecided.length > 0) {
+    actions.push({ type: 'skip-squat', playerId });
+    const canPickTarget = state.config.squatCards && !(state.config.healthMode && player.health <= HEALTH_SICK_THRESHOLD);
+    if (canPickTarget) {
+      // Dedupe by tile — multiple undecided charges at the same level
+      // shouldn't produce repeated identical actions for the same target.
+      const levels = new Set(undecided.map((h) => h.buildingLevel));
+      const seenTiles = new Set<number>();
+      for (const level of levels) {
+        for (const [key, ownership] of Object.entries(state.ownership)) {
+          const tileIndex = Number(key);
+          if (seenTiles.has(tileIndex) || ownership.ownerId === playerId || ownership.mortgaged) continue;
+          if (ownership.houses !== level) continue;
+          if (player.squattedPlayerIds.includes(ownership.ownerId)) continue;
+          seenTiles.add(tileIndex);
+          actions.push({ type: 'use-squat-on', playerId, tileIndex });
+        }
+      }
+    }
   }
 
   return actions;

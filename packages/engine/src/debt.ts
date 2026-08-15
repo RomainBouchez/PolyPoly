@@ -71,5 +71,10 @@ export function bankrupt(draft: GameState, playerId: PlayerId, events: GameEvent
   draft.heldJailCards = draft.heldJailCards.filter((h) => h.playerId !== playerId);
   player.getOutOfJailFreeCards = 0;
 
+  for (const held of draft.heldSquatCards.filter((h) => h.playerId === playerId)) {
+    draft.decks[held.deck].discardPile.push(findCardById(held.cardId));
+  }
+  draft.heldSquatCards = draft.heldSquatCards.filter((h) => h.playerId !== playerId);
+
   events.push({ type: 'bankrupt', playerId, creditorId });
 }

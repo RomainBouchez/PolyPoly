@@ -120,6 +120,17 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
     }
   });
 
+  socket.on('admin:grant-squat', (playerId, buildingLevel, ack) => {
+    try {
+      const events = room.grantSquat(playerId, buildingLevel);
+      broadcastGameState(events);
+      persist();
+      ack({ ok: true });
+    } catch (err) {
+      ack({ ok: false, reason: errorMessage(err) });
+    }
+  });
+
   socket.on('disconnect', () => {
     const playerId = room.handleDisconnect(socket.id);
     if (playerId) broadcastRoomUpdate();

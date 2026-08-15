@@ -132,6 +132,12 @@ export function applyAction(
       settleDebt(draft, action.playerId, events);
       resolveEndOfMove(draft, action.playerId, events);
       break;
+    case 'use-squat-on':
+      handleUseSquatOn(draft, action.playerId, action.tileIndex, events);
+      break;
+    case 'skip-squat':
+      handleSkipSquat(draft, action.playerId, events);
+      break;
     case 'declare-bankruptcy':
       bankrupt(draft, action.playerId, events);
       finishTurn(draft, events);
@@ -212,6 +218,41 @@ function finalizeAuction(draft: GameState, result: AuctionResult, events: GameEv
     events.push({ type: 'auction-no-sale', tileIndex: result.tileIndex });
   }
   resolveEndOfMove(draft, result.resumePlayerId, events);
+}
+
+/** Picks the target property for one of `playerId`'s still-undecided Squat
+ *  passes — the free stay applies automatically whenever they later land on
+ *  that exact tile (see the rent-charging branch in resolveTile). */
+function handleUseSquatOn(draft: GameState, playerId: PlayerId, tileIndex: number, events: GameEvent[]): void {
+  const player = requirePlayer(draft, playerId);
+  if (!draft.config.squatCards) throw new IllegalActionError('Squat cards are disabled');
+  if (draft.config.healthMode && player.health <= HEALTH_SICK_THRESHOLD) {
+    throw new IllegalActionError('Too sick to squat right now');
+  }
+
+  const ownership = draft.ownership[tileIndex];
+  if (!ownership) throw new IllegalActionError('That tile is not owned');
+  if (ownership.ownerId === playerId) throw new IllegalActionError('You already own that property');
+  if (ownership.mortgaged) throw new IllegalActionError('That property is mortgaged');
+  if (player.squattedPlayerIds.includes(ownership.ownerId)) throw new IllegalActionError('You already squatted this player');
+
+  const held = draft.heldSquatCards.find(
+    (h) => h.playerId === playerId && h.targetTileIndex === undefined && h.buildingLevel === ownership.houses,
+  );
+  if (!held) throw new IllegalActionError('No matching Squat pass for that property');
+
+  held.targetTileIndex = tileIndex;
+  player.squattedPlayerIds.push(ownership.ownerId);
+  events.push({ type: 'squat-target-chosen', playerId, targetId: ownership.ownerId, tileIndex });
+}
+
+function handleSkipSquat(draft: GameState, playerId: PlayerId, events: GameEvent[]): void {
+  const heldIdx = draft.heldSquatCards.findIndex((h) => h.playerId === playerId && h.targetTileIndex === undefined);
+  if (heldIdx === -1) throw new IllegalActionError('No Squat pass to skip');
+
+  const [held] = draft.heldSquatCards.splice(heldIdx, 1);
+  draft.decks[held!.deck].discardPile.push(findCardById(held!.cardId));
+  events.push({ type: 'squat-skipped', playerId });
 }
 
 function handlePayJailFine(draft: GameState, playerId: PlayerId, events: GameEvent[]): void {
@@ -383,9 +424,16 @@ function resolveTile(
           rent = Math.round(rent * ALLIANCE_RENT_MULTIPLIER);
         }
         if (rent > 0) {
-          const paid = chargePlayer(draft, playerId, rent, ownership.ownerId, events);
-          if (!paid) return;
-          events.push({ type: 'rent-paid', from: playerId, to: ownership.ownerId, amount: rent, tileIndex });
+          const squatIdx = draft.heldSquatCards.findIndex((h) => h.playerId === playerId && h.targetTileIndex === tileIndex);
+          if (squatIdx !== -1) {
+            const [held] = draft.heldSquatCards.splice(squatIdx, 1);
+            draft.decks[held!.deck].discardPile.push(findCardById(held!.cardId));
+            events.push({ type: 'squatted', playerId, targetId: ownership.ownerId, tileIndex });
+          } else {
+            const paid = chargePlayer(draft, playerId, rent, ownership.ownerId, events);
+            if (!paid) return;
+            events.push({ type: 'rent-paid', from: playerId, to: ownership.ownerId, amount: rent, tileIndex });
+          }
         }
       }
       break;
@@ -469,7 +517,7 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
   const effect = card.effect;
   const player = requirePlayer(draft, playerId);
 
-  if (effect.type !== 'get-out-of-jail-free') {
+  if (effect.type !== 'get-out-of-jail-free' && effect.type !== 'grant-squat') {
     draft.decks[deckName].discardPile.push(card);
   }
 
@@ -578,6 +626,15 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
       const partnerId = eligible[rng.nextInt(eligible.length) - 1]!;
       draft.alliances.push({ players: [playerId, partnerId], turnsRemaining: ALLIANCE_DURATION_TURNS });
       events.push({ type: 'alliance-formed', players: [playerId, partnerId] });
+      resolveEndOfMove(draft, playerId, events);
+      return;
+    }
+
+    case 'grant-squat': {
+      const levels = [1, 2, 3, 5];
+      const buildingLevel = levels[rng.nextInt(levels.length) - 1]!;
+      draft.heldSquatCards.push({ cardId: card.id, deck: deckName, playerId, buildingLevel });
+      events.push({ type: 'squat-granted', playerId, buildingLevel });
       resolveEndOfMove(draft, playerId, events);
       return;
     }

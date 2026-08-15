@@ -58,6 +58,10 @@ function TileLabel({ state, tileIndex }: { state: GameState; tileIndex: number }
   );
 }
 
+function squatLevelLabel(level: number): string {
+  return level === 5 ? 'hotel' : `${level}-house`;
+}
+
 function describeEvent(event: GameEvent, state: GameState): ReactNode {
   const P = ({ id }: { id: string }) => <PlayerName state={state} playerId={id} />;
   const T = ({ i }: { i: number }) => <TileLabel state={state} tileIndex={i} />;
@@ -230,6 +234,30 @@ function describeEvent(event: GameEvent, state: GameState): ReactNode {
       return (
         <>
           <P id={event.playerId} /> settled their debt
+        </>
+      );
+    case 'squat-granted':
+      return (
+        <>
+          <P id={event.playerId} /> got a Squat pass for {squatLevelLabel(event.buildingLevel)} properties
+        </>
+      );
+    case 'squat-target-chosen':
+      return (
+        <>
+          <P id={event.playerId} /> will squat <P id={event.targetId} />'s <T i={event.tileIndex} />
+        </>
+      );
+    case 'squat-skipped':
+      return (
+        <>
+          <P id={event.playerId} /> skipped their Squat pass
+        </>
+      );
+    case 'squatted':
+      return (
+        <>
+          <P id={event.playerId} /> squatted <P id={event.targetId} />'s <T i={event.tileIndex} /> — stayed free
         </>
       );
     case 'bankrupt':
