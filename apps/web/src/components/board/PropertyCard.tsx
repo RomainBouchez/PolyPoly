@@ -1,4 +1,5 @@
-import { motion, type PanInfo } from 'motion/react';
+import { useState } from 'react';
+import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import { X } from 'lucide-react';
 import {
   AIRPORT_RENT_BY_COUNT,
@@ -12,7 +13,9 @@ import {
   UTILITY_RENT_MULTIPLIER_BOTH,
   UTILITY_RENT_MULTIPLIER_ONE,
   getLegalActions,
+  groupTiles,
   isOwnable,
+  ownsFullGroup,
   type GameAction,
   type GameState,
   type PlayerId,
@@ -28,6 +31,49 @@ interface PropertyCardProps {
 }
 
 const RENT_ROW_LABELS = ['with rent', 'with one house', 'with two houses', 'with three houses', 'with four houses', 'with a hotel'];
+
+/**
+ * Why the Build button is absent on a property you own. Without this the
+ * button simply vanishes, which reads as the game being broken — most often
+ * after a bankruptcy, when you have just spent your cash buying up the estate
+ * or have inherited a set with a mortgage still on it.
+ */
+function buildBlockReason(state: GameState, playerId: PlayerId, tileIndex: number): string | null {
+  const tile = state.board.tiles[tileIndex];
+  if (!tile || tile.kind !== 'property') return null;
+  const ownership = state.ownership[tileIndex];
+  if (!ownership || ownership.ownerId !== playerId) return null;
+  if (ownership.houses >= 5) return null; // already a hotel — nothing to explain
+
+  const siblings = groupTiles(state.board, tile.group);
+  if (!ownsFullGroup(state, playerId, tileIndex)) {
+    const missing = siblings
+      .filter((s) => state.ownership[s.index]?.ownerId !== playerId)
+      .map((s) => s.name);
+    return `You need the whole set to build — still missing ${missing.join(', ')}.`;
+  }
+
+  const mortgaged = siblings.filter((s) => state.ownership[s.index]?.mortgaged).map((s) => s.name);
+  if (mortgaged.length > 0) return `Lift the mortgage on ${mortgaged.join(', ')} before building.`;
+
+  if (state.config.evenBuild) {
+    const minHouses = Math.min(...siblings.map((s) => state.ownership[s.index]?.houses ?? 0));
+    if (ownership.houses > minHouses) {
+      const lowest = siblings.filter((s) => (state.ownership[s.index]?.houses ?? 0) === minHouses).map((s) => s.name);
+      return `Even build — put the next house on ${lowest.join(' or ')} first.`;
+    }
+  }
+
+  const cash = state.players[playerId]?.cash ?? 0;
+  if (cash < tile.houseCost) return `A house here costs $${tile.houseCost} — you have $${cash}.`;
+
+  if (state.config.limitedHouseSupply) {
+    const becomingHotel = ownership.houses === 4;
+    if (becomingHotel && state.bank.hotelsRemaining <= 0) return 'The bank has no hotels left.';
+    if (!becomingHotel && state.bank.housesRemaining <= 0) return 'The bank has no houses left.';
+  }
+  return null;
+}
 
 // Past this offset or velocity, a downward drag commits to dismissal instead
 // of springing back — mirrors a native sheet's flick-to-close threshold.
@@ -46,9 +92,17 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
   const sell = legal.find((a) => a.type === 'sell-house');
   const mortgage = legal.find((a) => a.type === 'mortgage');
   const unmortgage = legal.find((a) => a.type === 'unmortgage');
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const blockReason = isMine ? buildBlockReason(state, myPlayerId, tileIndex) : null;
 
+  // The server is the authority, so a tap can still be refused even when the
+  // action was offered — a race against another player, or a guard the legal-
+  // action predicates do not model. Swallowing that reason made the button
+  // look broken, so surface it.
   async function run(action: GameAction) {
-    await onAction(action);
+    setRefusal(null);
+    const result = await onAction(action);
+    if (!result.ok) setRefusal(result.reason ?? 'That is not allowed right now');
   }
 
   function handleDragEnd(_: PointerEvent | MouseEvent | TouchEvent, info: PanInfo) {
@@ -267,6 +321,24 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
               )}
             </div>
           )}
+
+          {isMine && !build && blockReason && (
+            <p className="px-4 pb-3 text-center text-xs leading-snug text-amber-300/90">{blockReason}</p>
+          )}
+
+          <AnimatePresence>
+            {refusal && (
+              <motion.p
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.18, ease: 'easeOut' }}
+                className="overflow-hidden px-4 pb-3 text-center text-xs leading-snug text-red-300"
+              >
+                {refusal}
+              </motion.p>
+            )}
+          </AnimatePresence>
 
           {isOwnable(tile) && (
             <div className="flex items-center gap-2 border-t border-white/10 px-4 py-2 text-sm">

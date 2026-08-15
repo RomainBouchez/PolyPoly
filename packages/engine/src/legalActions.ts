@@ -1,13 +1,20 @@
 import { BID_INCREMENT } from './auction.js';
 import { getOwnableTile, groupTiles } from './board.js';
+import { HOTEL_LEVEL, HOUSES_PER_HOTEL } from './houses.js';
+import { UNMORTGAGE_INTEREST } from './mortgage.js';
 import { HEALTH_SICK_THRESHOLD, JAIL_FINE, ownsFullGroup } from './rules.js';
 import type { GameAction, GameState, PlayerId } from './types.js';
+
+// These predicates decide which actions the UI offers, so each one has to
+// mirror every guard its executor enforces. Anything checked there but not
+// here surfaces as a button that visibly does nothing when tapped — the
+// affordability and bank-supply checks below were exactly that.
 
 function canBuildHouse(state: GameState, playerId: PlayerId, tileIndex: number): boolean {
   const tile = state.board.tiles[tileIndex];
   if (!tile || tile.kind !== 'property') return false;
   const ownership = state.ownership[tileIndex];
-  if (!ownership || ownership.houses >= 5) return false;
+  if (!ownership || ownership.houses >= HOTEL_LEVEL) return false;
   if (!ownsFullGroup(state, playerId, tileIndex)) return false;
   const siblings = groupTiles(state.board, tile.group);
   if (siblings.some((s) => state.ownership[s.index]?.mortgaged)) return false;
@@ -15,7 +22,18 @@ function canBuildHouse(state: GameState, playerId: PlayerId, tileIndex: number):
     const minHouses = Math.min(...siblings.map((s) => state.ownership[s.index]?.houses ?? 0));
     if (ownership.houses > minHouses) return false;
   }
+  if ((state.players[playerId]?.cash ?? 0) < tile.houseCost) return false;
+  if (state.config.limitedHouseSupply) {
+    const becomingHotel = ownership.houses === HOUSES_PER_HOTEL;
+    if (becomingHotel ? state.bank.hotelsRemaining <= 0 : state.bank.housesRemaining <= 0) return false;
+  }
   return true;
+}
+
+function canAffordUnmortgage(state: GameState, playerId: PlayerId, tileIndex: number): boolean {
+  const tile = state.board.tiles[tileIndex];
+  if (!tile || !('mortgageValue' in tile)) return false;
+  return (state.players[playerId]?.cash ?? 0) >= Math.round(tile.mortgageValue * UNMORTGAGE_INTEREST);
 }
 
 function canSellHouse(state: GameState, tileIndex: number): boolean {
@@ -27,6 +45,10 @@ function canSellHouse(state: GameState, tileIndex: number): boolean {
     const siblings = groupTiles(state.board, tile.group);
     const maxHouses = Math.max(...siblings.map((s) => state.ownership[s.index]?.houses ?? 0));
     if (ownership.houses < maxHouses) return false;
+  }
+  // Breaking a hotel hands back 4 houses, which the bank has to have in stock.
+  if (state.config.limitedHouseSupply && ownership.houses === HOTEL_LEVEL) {
+    if (state.bank.housesRemaining < HOUSES_PER_HOTEL) return false;
   }
   return true;
 }
@@ -86,7 +108,9 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
     const tileIndex = Number(key);
     if (state.config.mortgage && isCurrentPlayersTurn) {
       if (!ownership.mortgaged && ownership.houses === 0) actions.push({ type: 'mortgage', playerId, tileIndex });
-      if (ownership.mortgaged) actions.push({ type: 'unmortgage', playerId, tileIndex });
+      if (ownership.mortgaged && canAffordUnmortgage(state, playerId, tileIndex)) {
+        actions.push({ type: 'unmortgage', playerId, tileIndex });
+      }
     }
     if (canBuildHouse(state, playerId, tileIndex)) actions.push({ type: 'build-house', playerId, tileIndex });
     if (canSellHouse(state, tileIndex)) actions.push({ type: 'sell-house', playerId, tileIndex });

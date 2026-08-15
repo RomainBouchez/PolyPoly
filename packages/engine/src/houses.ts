@@ -3,8 +3,8 @@ import { IllegalActionError } from './errors.js';
 import { ownsFullGroup } from './rules.js';
 import type { GameState, PlayerId } from './types.js';
 
-const HOUSES_PER_HOTEL = 4;
-const HOTEL_LEVEL = 5;
+export const HOUSES_PER_HOTEL = 4;
+export const HOTEL_LEVEL = 5;
 
 function requireBuildablePropertyGroup(state: GameState, playerId: PlayerId, tileIndex: number) {
   const tile = state.board.tiles[tileIndex];

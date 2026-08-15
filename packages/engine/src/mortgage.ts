@@ -2,7 +2,7 @@ import { getOwnableTile } from './board.js';
 import { IllegalActionError } from './errors.js';
 import type { GameState, PlayerId } from './types.js';
 
-const UNMORTGAGE_INTEREST = 1.1;
+export const UNMORTGAGE_INTEREST = 1.1;
 
 function requireOwnersTurn(state: GameState, playerId: PlayerId): void {
   if (state.turnOrder[state.currentPlayerIndex] !== playerId) {
