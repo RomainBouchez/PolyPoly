@@ -74,13 +74,27 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
           intentionally paints underneath them) so the toast is always
           visible — clipped to the exact same inner-square grid cell as the
           center panel, so it can never spill out onto/over the tile ring
-          regardless of board size. */}
+          regardless of board size.
+          `isolate` + `will-change-transform` force this onto its own
+          composited layer. z-40 is already the correct CSS ordering, but on
+          a low-power GPU it is a weak guarantee: when a sibling in the
+          centre panel is actively animating, the compositor can paint it
+          above this layer despite the lower z-index — a stacking-vs-
+          compositing race that z-index alone cannot prevent. Promoting this
+          layer explicitly removes the ambiguity.
+
+          Why it shows on phones and not the shared PC screen: the board CSS
+          is identical (both render this same BoardGrid, DiceRoll included).
+          What differs is `children` — the phone puts ActionPanel in the
+          centre panel, whose buttons carry whileTap-primed transforms, so
+          there is a transform-animated sibling here that BoardDisplay's
+          turn label and ActivityFeed never introduce. */}
       <div
         style={{
           gridRow: `2 / span ${layout.gridSize - 2}`,
           gridColumn: `2 / span ${layout.gridSize - 2}`,
         }}
-        className="pointer-events-none relative z-40 overflow-hidden rounded-[10px]"
+        className="pointer-events-none relative isolate z-40 overflow-hidden rounded-[10px] will-change-transform"
       >
         <EventToast events={events} state={state} layout={layout} />
       </div>
