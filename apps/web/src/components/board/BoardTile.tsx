@@ -1,4 +1,5 @@
-import type { GameState, Player, PropertyGroup, Tile } from '@polypoly/engine';
+import { AnimatePresence, motion } from 'motion/react';
+import type { GameState, PropertyGroup, Tile } from '@polypoly/engine';
 import type { CSSProperties } from 'react';
 import HEALTH_BONUS_SVG from '../../assets/icons/health-bonus.svg?raw';
 import HEALTH_MALUS_SVG from '../../assets/icons/health-malus.svg?raw';
@@ -20,23 +21,12 @@ const PANEL = '#0f1420';
 export function BoardTile({ tile, state, position, side, onSelect }: BoardTileProps) {
   const ownership = state.ownership[tile.index];
   const owner = ownership ? state.players[ownership.ownerId] : null;
-  const playersHere = Object.values(state.players).filter((p) => p.position === tile.index);
-  const currentTurnPlayerId =
-    state.phase.type !== 'game-over' ? state.turnOrder[state.currentPlayerIndex] : undefined;
   const hasPriceSlot = 'price' in tile;
   const price = !ownership && hasPriceSlot ? tile.price : undefined;
   const flagSvg = tile.kind === 'property' ? GROUP_FLAG_SVG[tile.group as PropertyGroup] : undefined;
 
   if (tile.kind === 'jail') {
-    return (
-      <JailTile
-        tileIndex={tile.index}
-        position={position}
-        playersHere={playersHere}
-        currentTurnPlayerId={currentTurnPlayerId}
-        onSelect={onSelect}
-      />
-    );
+    return <JailTile tileIndex={tile.index} position={position} onSelect={onSelect} />;
   }
 
   // Owner band sits on the tile's OUTER edge (the one facing the board
@@ -66,16 +56,39 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
       }}
       className="relative flex cursor-pointer overflow-hidden rounded-md hover:brightness-125"
     >
-      {owner && <div className="pointer-events-none absolute z-0" style={bandStyle} />}
-      {ownership?.mortgaged && (
-        <div
-          className="pointer-events-none absolute inset-0 z-0"
-          style={{
-            backgroundImage:
-              'repeating-linear-gradient(135deg, rgba(0,0,0,0.55) 0 6px, rgba(0,0,0,0.35) 6px 12px)',
-          }}
-        />
-      )}
+      {/* Owner band "unfurls" from the corner it's anchored to instead of
+          just popping into existence, so a fresh purchase reads as a flag
+          being planted rather than a color swap. */}
+      <AnimatePresence>
+        {owner && (
+          <motion.div
+            className="pointer-events-none absolute z-0"
+            style={{
+              ...bandStyle,
+              transformOrigin: side === 'left' || side === 'right' ? 'center top' : 'left center',
+            }}
+            initial={{ scaleX: side === 'left' || side === 'right' ? 1 : 0, scaleY: side === 'left' || side === 'right' ? 0 : 1 }}
+            animate={{ scaleX: 1, scaleY: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.35 }}
+          />
+        )}
+      </AnimatePresence>
+      <AnimatePresence>
+        {ownership?.mortgaged && (
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-0"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(135deg, rgba(0,0,0,0.55) 0 6px, rgba(0,0,0,0.35) 6px 12px)',
+            }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Content column: flag/houses strip, icon, name, price — sized off
           cqmin so nothing ever overflows or gets clipped regardless of
@@ -93,20 +106,33 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
           </span>
           {ownership && tile.kind === 'property' && ownership.houses > 0 && owner && (
             <span className="flex shrink-0 gap-[1.5cqmin]">
-              {ownership.houses === 5 ? (
-                <span
-                  className="block h-[8cqmin] w-[8cqmin] rounded-[1.5cqmin]"
-                  style={{ backgroundColor: owner.color, boxShadow: '0 0 0 1px rgba(255,255,255,0.35)' }}
-                />
-              ) : (
-                Array.from({ length: ownership.houses }).map((_, i) => (
-                  <span
-                    key={i}
-                    className="block h-[6cqmin] w-[6cqmin] rounded-full"
+              <AnimatePresence mode="popLayout">
+                {ownership.houses === 5 ? (
+                  <motion.span
+                    key="hotel"
+                    layout
+                    initial={{ scale: 0, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0, opacity: 0 }}
+                    transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
+                    className="block h-[8cqmin] w-[8cqmin] rounded-[1.5cqmin]"
                     style={{ backgroundColor: owner.color, boxShadow: '0 0 0 1px rgba(255,255,255,0.35)' }}
                   />
-                ))
-              )}
+                ) : (
+                  Array.from({ length: ownership.houses }).map((_, i) => (
+                    <motion.span
+                      key={i}
+                      layout
+                      initial={{ scale: 0, opacity: 0 }}
+                      animate={{ scale: 1, opacity: 1 }}
+                      exit={{ scale: 0, opacity: 0 }}
+                      transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.3 }}
+                      className="block h-[6cqmin] w-[6cqmin] rounded-full"
+                      style={{ backgroundColor: owner.color, boxShadow: '0 0 0 1px rgba(255,255,255,0.35)' }}
+                    />
+                  ))
+                )}
+              </AnimatePresence>
             </span>
           )}
         </div>
@@ -134,16 +160,6 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
           </span>
         )}
       </div>
-
-      {/* Player tokens overlay the whole tile, centered — not a flow item
-          pushed to one edge, so they stay visible regardless of tile content. */}
-      {playersHere.length > 0 && (
-        <div className="pointer-events-none absolute inset-0 z-[3] flex flex-wrap items-center justify-center gap-[1.5cqmin] p-[10%]">
-          {playersHere.map((p) => (
-            <PlayerToken key={p.id} player={p} isTurn={p.id === currentTurnPlayerId} />
-          ))}
-        </div>
-      )}
     </button>
   );
 }
@@ -158,19 +174,12 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
 function JailTile({
   tileIndex,
   position,
-  playersHere,
-  currentTurnPlayerId,
   onSelect,
 }: {
   tileIndex: number;
   position: { row: number; col: number };
-  playersHere: Player[];
-  currentTurnPlayerId: string | undefined;
   onSelect?: (tileIndex: number) => void;
 }) {
-  const inmates = playersHere.filter((p) => p.inJail);
-  const visitors = playersHere.filter((p) => !p.inJail);
-
   return (
     <button
       type="button"
@@ -214,13 +223,6 @@ function JailTile({
       >
         Visiting
       </span>
-      {visitors.length > 0 && (
-        <div className="absolute bottom-[16cqmin] left-[16cqmin] flex max-w-[30%] flex-wrap items-center justify-center gap-[2cqmin]">
-          {visitors.map((p) => (
-            <PlayerToken key={p.id} player={p} isTurn={p.id === currentTurnPlayerId} />
-          ))}
-        </div>
-      )}
 
       {/* In-jail cell — visually walled off with a border + bar stripes so
           it reads as a separate holding area, not just a corner icon. Jail
@@ -243,13 +245,6 @@ function JailTile({
         >
           🚔 In jail
         </span>
-        {inmates.length > 0 && (
-          <div className="flex flex-wrap items-center justify-center gap-[2cqmin]">
-            {inmates.map((p) => (
-              <PlayerToken key={p.id} player={p} isTurn={p.id === currentTurnPlayerId} />
-            ))}
-          </div>
-        )}
       </div>
     </button>
   );
@@ -265,24 +260,6 @@ function HealthBadge({ effect }: { effect: { healthDelta: number; pharmacy?: boo
       className="block h-[14cqmin] w-[14cqmin] shrink-0 drop-shadow-[0_1px_2px_rgba(0,0,0,0.7)]"
       style={{ color: positive ? '#4ade80' : '#f87171' }}
       dangerouslySetInnerHTML={{ __html: positive ? HEALTH_BONUS_SVG : HEALTH_MALUS_SVG }}
-    />
-  );
-}
-
-function PlayerToken({ player, isTurn }: { player: Player; isTurn: boolean }) {
-  return (
-    <span
-      title={player.name}
-      className="relative block aspect-square w-[clamp(10px,14cqmin,20px)] shrink-0 rounded-full border-2"
-      style={{
-        backgroundColor: player.color,
-        borderColor: 'rgba(5,7,13,0.9)',
-        boxShadow: isTurn
-          ? `0 1px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.35), 0 0 0 3px ${player.color}, 0 0 10px 3px ${player.color}`
-          : '0 1px 4px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.25)',
-        animation: isTurn ? 'token-pulse 1.4s ease-in-out infinite' : undefined,
-        ['--glow-color' as string]: player.color,
-      }}
     />
   );
 }

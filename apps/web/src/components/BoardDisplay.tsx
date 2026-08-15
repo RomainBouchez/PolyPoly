@@ -1,3 +1,4 @@
+import { MotionConfig } from 'motion/react';
 import { BoardGrid } from './board/BoardGrid.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { PlayersPanel } from './game/PlayersPanel.js';
@@ -21,25 +22,27 @@ export function BoardDisplay() {
   const currentPlayer = gameState.players[gameState.turnOrder[gameState.currentPlayerIndex]!];
 
   return (
-    <div className="h-dvh overflow-hidden bg-slate-950 p-2 text-slate-100">
-      <div className="mx-auto flex h-full max-w-[110rem] gap-4">
-        <div className="flex min-w-0 flex-1 items-center justify-center">
-          <BoardGrid state={gameState} events={events} myPlayerId="" onAction={NOOP_ACTION}>
-            {gameState.phase.type !== 'game-over' && currentPlayer && (
-              <p className="text-lg font-semibold" style={{ color: currentPlayer.color }}>
-                {currentPlayer.name}'s turn
-              </p>
-            )}
-            <div className="min-h-0 w-full flex-1 overflow-hidden">
-              <ActivityFeed events={events} state={gameState} />
-            </div>
-          </BoardGrid>
-        </div>
+    <MotionConfig reducedMotion="user">
+      <div className="h-dvh overflow-hidden bg-slate-950 p-2 text-slate-100">
+        <div className="mx-auto flex h-full max-w-[110rem] gap-4">
+          <div className="flex min-w-0 flex-1 items-center justify-center">
+            <BoardGrid state={gameState} events={events} myPlayerId="" onAction={NOOP_ACTION}>
+              {gameState.phase.type !== 'game-over' && currentPlayer && (
+                <p className="text-lg font-semibold" style={{ color: currentPlayer.color }}>
+                  {currentPlayer.name}'s turn
+                </p>
+              )}
+              <div className="min-h-0 w-full flex-1 overflow-hidden">
+                <ActivityFeed events={events} state={gameState} />
+              </div>
+            </BoardGrid>
+          </div>
 
-        <div className="w-56 shrink-0 overflow-y-auto">
-          <PlayersPanel state={gameState} />
+          <div className="w-56 shrink-0 overflow-y-auto">
+            <PlayersPanel state={gameState} />
+          </div>
         </div>
       </div>
-    </div>
+    </MotionConfig>
   );
 }

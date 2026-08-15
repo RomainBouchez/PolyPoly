@@ -1,5 +1,6 @@
 import { motion } from 'motion/react';
 import type { GameState } from '@polypoly/engine';
+import { CashValue } from './CashValue.js';
 
 export function PlayersPanel({ state }: { state: GameState }) {
   const currentPlayerId = state.turnOrder[state.currentPlayerIndex];
@@ -27,7 +28,7 @@ export function PlayersPanel({ state }: { state: GameState }) {
                   {p.inJail && <span title="In jail">🔒</span>}
                   {p.status === 'bankrupt' && <span className="text-xs text-red-400">bankrupt</span>}
                 </span>
-                <span className="tabular-nums text-slate-300">${p.cash}</span>
+                <CashValue cash={p.cash} baseColor="#cbd5e1" className="tabular-nums" />
               </div>
               {healthMode && <HealthBar health={p.health} />}
             </li>

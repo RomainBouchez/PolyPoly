@@ -9,6 +9,7 @@ import { PropertyCard } from './board/PropertyCard.js';
 import { ActionPanel } from './game/ActionPanel.js';
 import { AlliancePanel } from './game/AlliancePanel.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
+import { CashValue } from './game/CashValue.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
 import { SquatModal } from './game/SquatModal.js';
 import { TradePanel } from './game/TradePanel.js';
@@ -124,7 +125,7 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
             </span>
             <span className="font-semibold tracking-tight">{me.name}</span>
           </div>
-          <span className="text-lg font-semibold tabular-nums text-emerald-400">${me.cash}</span>
+          <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />
         </div>
         {state.config.healthMode && <HealthBar health={me.health} />}
       </div>

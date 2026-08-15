@@ -3,7 +3,9 @@ import { AnimatePresence } from 'motion/react';
 import type { GameAction, GameEvent, GameState, PlayerId } from '@polypoly/engine';
 import type { ReactNode } from 'react';
 import { BoardTile } from './BoardTile.js';
+import { DiceRoll } from './DiceRoll.js';
 import { EventToast } from './EventToast.js';
+import { PlayerTokensLayer } from './PlayerTokensLayer.js';
 import { PropertyCard } from './PropertyCard.js';
 import { computeBoardLayout, weightedGridTemplateColumns, weightedGridTemplateRows } from './tileLayout.js';
 
@@ -35,6 +37,11 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
         // the screen instead of the tiles resizing.
         gridTemplateColumns,
         gridTemplateRows,
+        // Establishes the containment the player-token layer's cqmin sizing
+        // resolves against (each tile has its OWN nested container for its
+        // own cqmin content, which takes precedence inside a tile — this
+        // only feeds elements sized directly off the whole board).
+        containerType: 'size',
       }}
     >
       {/* Rendered before the tiles so it paints *underneath* them. */}
@@ -46,6 +53,7 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
         }}
         className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[10px] border border-white/[0.08] p-4"
       >
+        <DiceRoll events={events} />
         {children}
       </div>
 
@@ -59,6 +67,8 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
           onSelect={setSelectedTile}
         />
       ))}
+
+      <PlayerTokensLayer state={state} layout={layout} />
 
       {/* A dedicated layer over the tiles (not the center panel below, which
           intentionally paints underneath them) so the toast is always
