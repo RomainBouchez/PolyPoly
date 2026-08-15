@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Gamepad2, Map } from 'lucide-react';
 import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
@@ -35,13 +35,32 @@ const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
  *  same full board right here, so the whole game still works on phones alone. */
 export function Controller({ state, events, myPlayerId, onAction }: ControllerProps) {
   const [tab, setTab] = useState<Tab>('play');
-  // Offers already dismissed this session. The modal is deliberately
-  // non-blocking, so without this it would reopen on every state broadcast;
-  // the offer itself stays answerable from the Trades tab.
-  const [dismissedTrades, setDismissedTrades] = useState<number[]>([]);
   const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
+  // Fired from the arrival *event*, not from the presence of a pending trade:
+  // keying off state meant every remount — a reconnect, a refresh — re-popped
+  // an offer that had simply not been answered yet. `events` only ever holds
+  // batches received since this mount, so an offer announces itself once, when
+  // it is actually sent, and afterwards lives in the Trades tab.
+  const [announced, setAnnounced] = useState<TradeOffer | null>(null);
+  const seenEventCount = useRef(events.length);
 
-  const incomingTrade = state.pendingTrades.find((t) => t.toId === myPlayerId && !dismissedTrades.includes(t.id));
+  useEffect(() => {
+    if (events.length <= seenEventCount.current) {
+      seenEventCount.current = events.length;
+      return;
+    }
+    const fresh = events.slice(seenEventCount.current);
+    seenEventCount.current = events.length;
+    const mine = fresh.filter((e) => e.type === 'trade-proposed' && e.toId === myPlayerId);
+    const latest = mine[mine.length - 1];
+    if (!latest || latest.type !== 'trade-proposed') return;
+    const offer = state.pendingTrades.find((t) => t.id === latest.tradeId);
+    if (offer) setAnnounced(offer);
+  }, [events, state, myPlayerId]);
+
+  // Drop it the moment it stops being live — accepted, declined or countered
+  // by someone else while the sheet sat open.
+  const incomingTrade = announced && state.pendingTrades.some((t) => t.id === announced.id) ? announced : null;
 
   return (
     <MotionConfig reducedMotion="user">
@@ -125,10 +144,10 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
                 myPlayerId={myPlayerId}
                 onAction={onAction}
                 onNegotiate={(t) => {
-                  setDismissedTrades((ids) => [...ids, t.id]);
+                  setAnnounced(null);
                   setNegotiating(t);
                 }}
-                onClose={() => setDismissedTrades((ids) => [...ids, incomingTrade.id])}
+                onClose={() => setAnnounced(null)}
               />
             )
           )}

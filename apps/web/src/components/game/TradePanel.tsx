@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
-import type { GameAction, GameState, PlayerId } from '@polypoly/engine';
+import type { GameAction, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
 import { TradeModal } from './TradeModal.js';
 
 interface TradePanelProps {
@@ -18,6 +18,9 @@ function tileName(state: GameState, tileIndex: number): string {
 
 export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
   const [modalOpen, setModalOpen] = useState(false);
+  // The offer being answered with changes, if any — the same builder serves
+  // both a fresh proposal and a counter.
+  const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
   const others = state.turnOrder.filter((id) => id !== myPlayerId && state.players[id]?.status === 'active');
 
   const incoming = state.pendingTrades.filter((t) => t.toId === myPlayerId);
@@ -42,6 +45,14 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
               className="rounded-lg bg-emerald-500 px-2.5 py-1 text-xs font-semibold text-slate-950 active:bg-emerald-400"
             >
               Accept
+            </motion.button>
+            <motion.button
+              onClick={() => setNegotiating(t)}
+              whileTap={{ scale: 0.94 }}
+              transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+              className="rounded-lg bg-violet-500/25 px-2.5 py-1 text-xs font-semibold text-violet-100 ring-1 ring-inset ring-violet-500/40 active:bg-violet-500/35"
+            >
+              Negotiate
             </motion.button>
             <motion.button
               onClick={() => onAction({ type: 'respond-trade', playerId: myPlayerId, tradeId: t.id, accept: false })}
@@ -83,8 +94,19 @@ export function TradePanel({ state, myPlayerId, onAction }: TradePanelProps) {
       )}
 
       <AnimatePresence>
-        {modalOpen && (
-          <TradeModal state={state} myPlayerId={myPlayerId} onAction={onAction} onClose={() => setModalOpen(false)} />
+        {negotiating ? (
+          <TradeModal
+            key="counter"
+            state={state}
+            myPlayerId={myPlayerId}
+            onAction={onAction}
+            counters={negotiating}
+            onClose={() => setNegotiating(null)}
+          />
+        ) : (
+          modalOpen && (
+            <TradeModal key="new" state={state} myPlayerId={myPlayerId} onAction={onAction} onClose={() => setModalOpen(false)} />
+          )
         )}
       </AnimatePresence>
     </div>
