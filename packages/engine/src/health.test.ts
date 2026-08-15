@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from './applyAction.js';
+import { GO_SALARY_SICK } from './rules.js';
 import { freshState, P1, P2, scriptedRng } from './testUtils.js';
 
 // Board indices used below (see data/board.europe.ts):
@@ -20,7 +21,7 @@ describe('illness (double-1)', () => {
     expect(events.some((e) => e.type === 'illness' && !e.doublePeine && e.healthLoss === 20)).toBe(true);
   });
 
-  it('double peine: costs 30 health and doubles hospital payouts, when already in the sick zone', () => {
+  it('double peine: costs extra health but no longer doubles the cash, when already in the sick zone', () => {
     const state = freshState({ healthMode: true });
     state.players[P1]!.position = 40;
     state.players[P1]!.health = 15; // already 0-20
@@ -28,7 +29,9 @@ describe('illness (double-1)', () => {
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
 
     expect(next.players[P1]!.health).toBe(0); // 15 - 30, clamped
-    expect(next.vacationPot).toBe(150); // 3 unowned hospitals x $50 (doubled)
+    // Doubling the payout too drained whoever could least afford it, so the
+    // second penalty is health-only now: 3 unowned hospitals x $25, undoubled.
+    expect(next.vacationPot).toBe(75);
     expect(events.some((e) => e.type === 'illness' && e.doublePeine && e.healthLoss === 30)).toBe(true);
   });
 
@@ -47,7 +50,7 @@ describe('illness (double-1)', () => {
     expect(next.vacationPot).toBe(25);
   });
 
-  it('scales the payout with the owner\'s own hospital count (1/2/3 -> 25/60/150)', () => {
+  it('scales the payout with the owner\'s own hospital count (1/2/3 -> 25/50/90)', () => {
     const state = freshState({ healthMode: true });
     state.players[P1]!.position = 40;
     state.players[P1]!.health = 50;
@@ -57,7 +60,7 @@ describe('illness (double-1)', () => {
 
     const { state: next } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
 
-    expect(next.players[P2]!.cash).toBe(1500 + 150); // all 3 hospitals, one owner
+    expect(next.players[P2]!.cash).toBe(1500 + 90); // all 3 hospitals, one owner
     expect(next.vacationPot).toBe(0);
   });
 
@@ -123,16 +126,16 @@ describe('pharmacy', () => {
 });
 
 describe('Go bonus interaction with health', () => {
-  it('withholds the $200 while in the sick zone, but still grants the health bonus', () => {
+  it('pays the reduced salary while in the sick zone, and still grants the health bonus', () => {
     const state = freshState({ healthMode: true });
     state.players[P1]!.position = 41; // +3 (non-double) wraps past Go to tile 0
     state.players[P1]!.health = 15;
 
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));
 
-    expect(next.players[P1]!.cash).toBe(1500); // no salary
+    expect(next.players[P1]!.cash).toBe(1500 + GO_SALARY_SICK); // reduced, not withheld
     expect(next.players[P1]!.health).toBe(20); // +5, still capped at 100
-    expect(events.some((e) => e.type === 'collected-go')).toBe(false);
+    expect(events.some((e) => e.type === 'collected-go' && e.amount === GO_SALARY_SICK)).toBe(true);
   });
 
   it('pays the normal $200 plus the health bonus outside the sick zone', () => {

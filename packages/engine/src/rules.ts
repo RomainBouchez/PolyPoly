@@ -4,13 +4,21 @@ import type { GameState, PlayerId } from './types.js';
 export const JAIL_FINE = 50;
 export const MAX_JAIL_TURNS = 3;
 export const GO_SALARY = 200;
+/** Being sick used to void the Go salary outright, which left a sick player
+ *  with no way to fund the very things that cure them. They now collect a
+ *  reduced salary instead of nothing. */
+export const GO_SALARY_SICK = 100;
 
 export const HEALTH_START = 50;
 export const HEALTH_MAX = 100;
 export const HEALTH_SICK_THRESHOLD = 20;
 export const ILLNESS_PENALTY = 20;
 export const ILLNESS_PENALTY_DOUBLE = 30;
-export const HOSPITAL_PAYOUT = [25, 60, 150];
+/** Paid to each hospital owner on a 1-1 roll, indexed by how many hospitals
+ *  that owner holds. The top rate was 150 — with one player holding all three
+ *  hospitals that is a punishing hit on a ~2.8% roll, so the curve is flatter
+ *  now: owning the set is still clearly worth it without being crushing. */
+export const HOSPITAL_PAYOUT = [25, 50, 90];
 export const GO_HEALTH_BONUS = 5;
 export const PHARMACY_RESET_HEALTH = 50;
 

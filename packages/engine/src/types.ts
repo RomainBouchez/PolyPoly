@@ -190,7 +190,10 @@ export type GameEvent =
   | { type: 'card-effect'; playerId: PlayerId; description: string; cashDelta: number }
   | { type: 'landed-on-vacation'; playerId: PlayerId; amount: number }
   | { type: 'health-effect'; playerId: PlayerId; tileIndex: number; cashDelta: number; healthDelta: number }
-  | { type: 'illness'; playerId: PlayerId; healthLoss: number; doublePeine: boolean }
+  // `cashPaid` is the total actually taken (capped at what the player had), so
+  // the feed can say where the money went — it used to move with no event
+  // mentioning it at all, which read as cash vanishing for no reason.
+  | { type: 'illness'; playerId: PlayerId; healthLoss: number; doublePeine: boolean; cashPaid: number }
   | { type: 'house-built'; playerId: PlayerId; tileIndex: number; houses: number }
   | { type: 'house-sold'; playerId: PlayerId; tileIndex: number; houses: number }
   | { type: 'mortgaged'; playerId: PlayerId; tileIndex: number; amount: number }

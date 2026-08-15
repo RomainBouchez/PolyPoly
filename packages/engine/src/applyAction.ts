@@ -14,6 +14,7 @@ import {
   EMERGENCY_HEALTH_THRESHOLD,
   GO_HEALTH_BONUS,
   GO_SALARY,
+  GO_SALARY_SICK,
   HEALTH_MAX,
   HEALTH_SICK_THRESHOLD,
   HOSPITAL_PAYOUT,
@@ -326,15 +327,20 @@ function movePlayer(draft: GameState, playerId: PlayerId, steps: number, events:
   const passedGo = to < from;
   player.position = to;
   events.push({ type: 'moved', playerId, from, to, passedGo });
-  if (passedGo) {
-    const isSick = draft.config.healthMode && player.health <= HEALTH_SICK_THRESHOLD;
-    if (!isSick) {
-      player.cash += GO_SALARY;
-      events.push({ type: 'collected-go', playerId, amount: GO_SALARY });
-    }
-    if (draft.config.healthMode) {
-      player.health = Math.min(HEALTH_MAX, player.health + GO_HEALTH_BONUS);
-    }
+  if (passedGo) collectGoSalary(draft, playerId, events);
+}
+
+/** Every way of passing Go pays through here — dice moves and the cards that
+ *  advance you — so the reduced sick rate cannot apply on one route and not
+ *  another. */
+function collectGoSalary(draft: GameState, playerId: PlayerId, events: GameEvent[]): void {
+  const player = requirePlayer(draft, playerId);
+  const isSick = draft.config.healthMode && player.health <= HEALTH_SICK_THRESHOLD;
+  const salary = isSick ? GO_SALARY_SICK : GO_SALARY;
+  player.cash += salary;
+  events.push({ type: 'collected-go', playerId, amount: salary });
+  if (draft.config.healthMode) {
+    player.health = Math.min(HEALTH_MAX, player.health + GO_HEALTH_BONUS);
   }
 }
 
@@ -479,7 +485,10 @@ function triggerIllness(draft: GameState, playerId: PlayerId, events: GameEvent[
   const player = requirePlayer(draft, playerId);
   const isDoublePeine = player.health <= HEALTH_SICK_THRESHOLD;
   const healthLoss = isDoublePeine ? ILLNESS_PENALTY_DOUBLE : ILLNESS_PENALTY;
-  const multiplier = isDoublePeine ? 2 : 1;
+  // Double peine costs extra *health* only. It used to double the cash payout
+  // too, so falling ill while already ill drained a player who by definition
+  // had the least room to absorb it — the surest way into an unrecoverable
+  // spiral, given being sick also cuts the Go salary.
 
   // Group hospitals by owner — payout scales with each owner's own hospital
   // count, same shape as airport rent. An unowned hospital's nominal share
@@ -489,26 +498,28 @@ function triggerIllness(draft: GameState, playerId: PlayerId, events: GameEvent[
   for (const hospital of hospitalTiles(draft.board)) {
     const ownership = draft.ownership[hospital.index];
     if (!ownership) {
-      potContribution += HOSPITAL_PAYOUT[0]! * multiplier;
+      potContribution += HOSPITAL_PAYOUT[0]!;
     } else {
       ownerCounts.set(ownership.ownerId, (ownerCounts.get(ownership.ownerId) ?? 0) + 1);
     }
   }
 
+  let cashPaid = 0;
   for (const [ownerId, count] of ownerCounts) {
-    const amount = (HOSPITAL_PAYOUT[Math.min(count, 3) - 1] ?? 0) * multiplier;
+    const amount = HOSPITAL_PAYOUT[Math.min(count, 3) - 1] ?? 0;
     const sickPlayer = requirePlayer(draft, playerId);
     const paidAmount = Math.min(amount, sickPlayer.cash);
     if (paidAmount > 0) {
       sickPlayer.cash -= paidAmount;
       draft.players[ownerId]!.cash += paidAmount;
+      cashPaid += paidAmount;
     }
     if (paidAmount < amount) potContribution += amount - paidAmount;
   }
 
   draft.vacationPot += potContribution;
   player.health = Math.max(0, player.health - healthLoss);
-  events.push({ type: 'illness', playerId, healthLoss, doublePeine: isDoublePeine });
+  events.push({ type: 'illness', playerId, healthLoss, doublePeine: isDoublePeine, cashPaid });
 }
 
 function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' | 'customs', rng: Rng, events: GameEvent[]): void {
@@ -554,10 +565,7 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
       const passedGo = to < from;
       player.position = to;
       events.push({ type: 'moved', playerId, from, to, passedGo });
-      if (passedGo) {
-        player.cash += GO_SALARY;
-        events.push({ type: 'collected-go', playerId, amount: GO_SALARY });
-      }
+      if (passedGo) collectGoSalary(draft, playerId, events);
       resolveTile(draft, playerId, to, 0, rng, events);
       return;
     }
@@ -569,10 +577,7 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
       const passedGo = effect.steps > 0 && to < from;
       player.position = to;
       events.push({ type: 'moved', playerId, from, to, passedGo });
-      if (passedGo) {
-        player.cash += GO_SALARY;
-        events.push({ type: 'collected-go', playerId, amount: GO_SALARY });
-      }
+      if (passedGo) collectGoSalary(draft, playerId, events);
       resolveTile(draft, playerId, to, 0, rng, events);
       return;
     }

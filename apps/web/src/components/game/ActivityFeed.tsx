@@ -150,6 +150,7 @@ function describeEvent(event: GameEvent, state: GameState): ReactNode {
       return (
         <>
           <P id={event.playerId} /> got sick{event.doublePeine ? ' (double peine)' : ''} — -{event.healthLoss} health
+          {event.cashPaid > 0 && <>, ${event.cashPaid} in hospital fees</>}
         </>
       );
     case 'landed-on-vacation':
