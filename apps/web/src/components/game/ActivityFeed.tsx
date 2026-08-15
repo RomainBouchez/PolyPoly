@@ -1,12 +1,14 @@
 import { AnimatePresence, motion } from 'motion/react';
+import type { ReactNode } from 'react';
 import type { GameEvent, GameState } from '@polypoly/engine';
+import { tileIcon } from '../board/BoardTile.js';
 
 export function ActivityFeed({ events, state }: { events: GameEvent[]; state: GameState }) {
   const recent = [...events].reverse().slice(0, 40);
   return (
     <div className="flex h-full min-h-0 w-full flex-col rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
-      <h2 className="mb-2 shrink-0 text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</h2>
-      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto text-xs text-slate-400">
+      <h2 className="mb-2 shrink-0 text-center text-xs font-semibold uppercase tracking-wide text-slate-400">Activity</h2>
+      <ul className="min-h-0 flex-1 space-y-1 overflow-y-auto text-center text-xs text-slate-400">
         <AnimatePresence initial={false}>
           {recent.map((event, i) => (
             <motion.li
@@ -25,71 +27,193 @@ export function ActivityFeed({ events, state }: { events: GameEvent[]; state: Ga
   );
 }
 
-function name(state: GameState, playerId: string): string {
-  return state.players[playerId]?.name ?? playerId;
+/** Player name in their token color, matching the dot convention in PlayersPanel. */
+function PlayerName({ state, playerId }: { state: GameState; playerId: string }) {
+  const p = state.players[playerId];
+  if (!p) return <span>{playerId}</span>;
+  return (
+    <span className="font-semibold" style={{ color: p.color }}>
+      {p.name}
+    </span>
+  );
 }
 
-function tileName(state: GameState, tileIndex: number): string {
+/** Tile name with its board emoji, so a city reads the same as it does on the board. */
+function TileLabel({ state, tileIndex }: { state: GameState; tileIndex: number }) {
   const tile = state.board.tiles[tileIndex];
-  return tile && tile.kind !== 'go' && tile.kind !== 'jail' && tile.kind !== 'vacation' && tile.kind !== 'go-to-jail' && tile.kind !== 'card'
-    ? tile.name
-    : `tile ${tileIndex}`;
+  if (!tile) return <span>tile {tileIndex}</span>;
+  const label =
+    tile.kind === 'go' || tile.kind === 'jail' || tile.kind === 'vacation' || tile.kind === 'go-to-jail' || tile.kind === 'card'
+      ? tile.kind === 'card'
+        ? tile.deck === 'travel'
+          ? 'Travel'
+          : 'Customs'
+        : tile.kind
+      : tile.name;
+  return (
+    <span className="inline-flex items-center gap-1">
+      <span>{tileIcon(tile)}</span>
+      <span>{label}</span>
+    </span>
+  );
 }
 
-function describeEvent(event: GameEvent, state: GameState): string {
+function describeEvent(event: GameEvent, state: GameState): ReactNode {
+  const P = ({ id }: { id: string }) => <PlayerName state={state} playerId={id} />;
+  const T = ({ i }: { i: number }) => <TileLabel state={state} tileIndex={i} />;
+
   switch (event.type) {
     case 'rolled':
-      return `${name(state, event.playerId)} rolled ${event.dice[0]}+${event.dice[1]}`;
+      return (
+        <>
+          <P id={event.playerId} /> rolled {event.dice[0]}+{event.dice[1]}
+        </>
+      );
     case 'moved':
-      return `${name(state, event.playerId)} moved to ${tileName(state, event.to)}`;
+      return (
+        <>
+          <P id={event.playerId} /> moved to <T i={event.to} />
+        </>
+      );
     case 'collected-go':
-      return `${name(state, event.playerId)} collected $${event.amount} for passing Go`;
+      return (
+        <>
+          <P id={event.playerId} /> collected ${event.amount} for passing Go
+        </>
+      );
     case 'rent-paid':
-      return `${name(state, event.from)} paid $${event.amount} rent to ${name(state, event.to)}`;
+      return (
+        <>
+          <P id={event.from} /> paid ${event.amount} rent to <P id={event.to} />
+        </>
+      );
     case 'tax-paid':
-      return `${name(state, event.playerId)} paid $${event.amount} tax`;
+      return (
+        <>
+          <P id={event.playerId} /> paid ${event.amount} tax
+        </>
+      );
     case 'purchased':
-      return `${name(state, event.playerId)} bought ${tileName(state, event.tileIndex)} for $${event.price}`;
+      return (
+        <>
+          <P id={event.playerId} /> bought <T i={event.tileIndex} /> for ${event.price}
+        </>
+      );
     case 'declined-purchase':
-      return `${name(state, event.playerId)} declined to buy ${tileName(state, event.tileIndex)}`;
+      return (
+        <>
+          <P id={event.playerId} /> declined to buy <T i={event.tileIndex} />
+        </>
+      );
     case 'sent-to-jail':
-      return `${name(state, event.playerId)} was sent to jail (${event.reason})`;
+      return (
+        <>
+          <P id={event.playerId} /> was sent to jail ({event.reason})
+        </>
+      );
     case 'released-from-jail':
-      return `${name(state, event.playerId)} left jail (${event.method})`;
+      return (
+        <>
+          <P id={event.playerId} /> left jail ({event.method})
+        </>
+      );
     case 'stayed-in-jail':
-      return `${name(state, event.playerId)} stayed in jail`;
+      return (
+        <>
+          <P id={event.playerId} /> stayed in jail
+        </>
+      );
     case 'card-drawn':
-      return `${name(state, event.playerId)} drew: ${event.text}`;
+      return (
+        <>
+          <P id={event.playerId} /> drew: {event.text}
+        </>
+      );
     case 'card-effect':
-      return `${name(state, event.playerId)} — ${event.description}`;
+      return (
+        <>
+          <P id={event.playerId} /> — {event.description}
+        </>
+      );
     case 'health-effect':
-      return `${name(state, event.playerId)} at ${tileName(state, event.tileIndex)}: ${event.cashDelta !== 0 ? `$${event.cashDelta} ` : ''}${
-        event.healthDelta !== 0 ? `${event.healthDelta > 0 ? '+' : ''}${event.healthDelta} health` : ''
-      }`;
+      return (
+        <>
+          <P id={event.playerId} /> at <T i={event.tileIndex} />: {event.cashDelta !== 0 ? `$${event.cashDelta} ` : ''}
+          {event.healthDelta !== 0 ? `${event.healthDelta > 0 ? '+' : ''}${event.healthDelta} health` : ''}
+        </>
+      );
     case 'illness':
-      return `${name(state, event.playerId)} got sick${event.doublePeine ? ' (double peine)' : ''} — -${event.healthLoss} health`;
+      return (
+        <>
+          <P id={event.playerId} /> got sick{event.doublePeine ? ' (double peine)' : ''} — -{event.healthLoss} health
+        </>
+      );
     case 'landed-on-vacation':
-      return `${name(state, event.playerId)} collected $${event.amount} on Vacation`;
+      return (
+        <>
+          <P id={event.playerId} /> collected ${event.amount} on Vacation
+        </>
+      );
     case 'house-built':
-      return `${name(state, event.playerId)} built on ${tileName(state, event.tileIndex)} (${event.houses} 🏠)`;
+      return (
+        <>
+          <P id={event.playerId} /> built on <T i={event.tileIndex} /> ({event.houses} 🏠)
+        </>
+      );
     case 'house-sold':
-      return `${name(state, event.playerId)} sold a house on ${tileName(state, event.tileIndex)}`;
+      return (
+        <>
+          <P id={event.playerId} /> sold a house on <T i={event.tileIndex} />
+        </>
+      );
     case 'mortgaged':
-      return `${name(state, event.playerId)} mortgaged ${tileName(state, event.tileIndex)} for $${event.amount}`;
+      return (
+        <>
+          <P id={event.playerId} /> mortgaged <T i={event.tileIndex} /> for ${event.amount}
+        </>
+      );
     case 'unmortgaged':
-      return `${name(state, event.playerId)} lifted the mortgage on ${tileName(state, event.tileIndex)}`;
+      return (
+        <>
+          <P id={event.playerId} /> lifted the mortgage on <T i={event.tileIndex} />
+        </>
+      );
     case 'auction-started':
-      return `Auction started for ${tileName(state, event.tileIndex)}`;
+      return (
+        <>
+          Auction started for <T i={event.tileIndex} />
+        </>
+      );
     case 'auction-bid':
-      return `${name(state, event.playerId)} bid $${event.amount}`;
+      return (
+        <>
+          <P id={event.playerId} /> bid ${event.amount}
+        </>
+      );
     case 'auction-passed':
-      return `${name(state, event.playerId)} passed`;
+      return (
+        <>
+          <P id={event.playerId} /> passed
+        </>
+      );
     case 'auction-won':
-      return `${name(state, event.playerId)} won the auction for $${event.amount}`;
+      return (
+        <>
+          <P id={event.playerId} /> won the auction for ${event.amount}
+        </>
+      );
     case 'auction-no-sale':
-      return `No one bid on ${tileName(state, event.tileIndex)}`;
+      return (
+        <>
+          No one bid on <T i={event.tileIndex} />
+        </>
+      );
     case 'trade-proposed':
-      return `${name(state, event.fromId)} proposed a trade to ${name(state, event.toId)}`;
+      return (
+        <>
+          <P id={event.fromId} /> proposed a trade to <P id={event.toId} />
+        </>
+      );
     case 'trade-accepted':
       return `Trade #${event.tradeId} accepted`;
     case 'trade-declined':
@@ -97,14 +221,78 @@ function describeEvent(event: GameEvent, state: GameState): string {
     case 'trade-cancelled':
       return `Trade #${event.tradeId} cancelled`;
     case 'debt-pending':
-      return `${name(state, event.playerId)} owes $${event.amount}`;
+      return (
+        <>
+          <P id={event.playerId} /> owes ${event.amount}
+        </>
+      );
     case 'debt-settled':
-      return `${name(state, event.playerId)} settled their debt`;
+      return (
+        <>
+          <P id={event.playerId} /> settled their debt
+        </>
+      );
     case 'bankrupt':
-      return `${name(state, event.playerId)} went bankrupt`;
+      return (
+        <>
+          <P id={event.playerId} /> went bankrupt
+        </>
+      );
     case 'turn-ended':
-      return `— ${name(state, event.nextPlayerId)}'s turn —`;
+      return (
+        <>
+          — <P id={event.nextPlayerId} />'s turn —
+        </>
+      );
     case 'game-over':
-      return `🏆 ${name(state, event.winnerId)} wins the game!`;
+      return (
+        <>
+          🏆 <P id={event.winnerId} /> wins the game!
+        </>
+      );
+    case 'emergency-fine':
+      return (
+        <>
+          🚑 <P id={event.playerId} /> paid a ${event.amount} emergency fine
+        </>
+      );
+    case 'sunny-day-started':
+      return `☀️ Sunny day! Rent halved for ${event.turns} turn${event.turns > 1 ? 's' : ''}`;
+    case 'sunny-day-ended':
+      return '☀️ The sunny day is over';
+    case 'rainy-day-started':
+      return `🌧️ Rainy day! Rent doubled for ${event.turns} turn${event.turns > 1 ? 's' : ''}`;
+    case 'rainy-day-ended':
+      return '🌧️ The rain has stopped';
+    case 'alliance-formed':
+      return (
+        <>
+          🤝 <P id={event.players[0]} /> and <P id={event.players[1]} /> formed an alliance
+        </>
+      );
+    case 'alliance-ended':
+      return (
+        <>
+          <P id={event.players[0]} /> and <P id={event.players[1]} />'s alliance ended
+        </>
+      );
+    case 'health-transferred':
+      return (
+        <>
+          <P id={event.fromId} /> gave {event.amount} health to <P id={event.toId} />
+        </>
+      );
+    case 'hostage-taken':
+      return (
+        <>
+          <P id={event.playerId} /> took <T i={event.tileIndex} /> hostage
+        </>
+      );
+    case 'hostage-released':
+      return (
+        <>
+          <P id={event.playerId} /> released <T i={event.tileIndex} />
+        </>
+      );
   }
 }

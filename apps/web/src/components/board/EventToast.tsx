@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
 import type { BoardLayout, GameEvent, GameState } from '@polypoly/engine';
+import { trackBoundaryPercent, trackCenterPercent } from './tileLayout.js';
 
 interface EventToastProps {
   events: GameEvent[];
@@ -26,7 +27,7 @@ export function EventToast({ events, state, layout }: EventToastProps) {
     if (!notable) return;
     const info = toastFor(notable, state)!;
     setVisible({ key: events.length, ...info });
-    const timer = setTimeout(() => setVisible((v) => (v?.key === events.length ? null : v)), 2000);
+    const timer = setTimeout(() => setVisible((v) => (v?.key === events.length ? null : v)), 3000);
     return () => clearTimeout(timer);
   }, [events, state]);
 
@@ -37,36 +38,45 @@ export function EventToast({ events, state, layout }: EventToastProps) {
       {visible && (
         <motion.div
           key={visible.key}
-          className="pointer-events-none absolute z-30 flex max-w-[80%] items-center gap-[10px] rounded-2xl border"
+          className="pointer-events-none absolute z-30 flex max-w-[85%] items-center gap-[6px] rounded-xl border"
           style={{
             left: `${pos.left}%`,
             top: `${pos.top}%`,
-            padding: '16px 22px',
+            padding: '6px 10px',
             background: 'rgba(15, 20, 32, 0.96)',
             borderColor: 'rgba(255,255,255,0.14)',
-            boxShadow: '0 12px 40px rgba(0,0,0,0.5)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
           }}
           initial={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
           animate={{ opacity: 1, scale: 1, x: '-50%', y: '-50%' }}
           exit={{ opacity: 0, scale: 0.9, x: '-50%', y: '-50%' }}
           transition={{ duration: 0.25, ease: 'easeOut' }}
         >
-          <span className="shrink-0 text-[26px] leading-none">{visible.icon}</span>
-          <span className="text-sm font-semibold leading-tight text-slate-100">{visible.text}</span>
+          <span className="shrink-0 text-[clamp(13px,1.8vw,18px)] leading-none">{visible.icon}</span>
+          <span className="text-[clamp(9px,1.1vw,12px)] font-semibold leading-tight text-slate-100">{visible.text}</span>
         </motion.div>
       )}
     </AnimatePresence>
   );
 }
 
+/** The toast is a DOM child of the center panel (not the whole board), so its
+ *  left/top percentages are relative to the panel's own box. Board-space
+ *  percentages from the weighted-track helpers must be re-mapped into that
+ *  panel-local space, or a tile near an edge maps to a point outside the
+ *  panel entirely. */
 function toastPosition(layout: BoardLayout, tileIndex: number): { left: number; top: number } {
   const pos = layout.positions[tileIndex];
   if (!pos) return { left: 50, top: 50 };
   const g = layout.gridSize;
-  const clamp = (v: number) => Math.min(0.82, Math.max(0.18, v));
+  const colStart = trackBoundaryPercent(1, g, 'col');
+  const colEnd = trackBoundaryPercent(g - 1, g, 'col');
+  const rowStart = trackBoundaryPercent(1, g, 'row');
+  const rowEnd = trackBoundaryPercent(g - 1, g, 'row');
+  const clamp = (v: number) => Math.min(88, Math.max(12, v));
   return {
-    left: clamp((pos.col - 1) / (g - 1)) * 100,
-    top: clamp((pos.row - 1) / (g - 1)) * 100,
+    left: clamp(((trackCenterPercent(pos.col, g, 'col') - colStart) / (colEnd - colStart)) * 100),
+    top: clamp(((trackCenterPercent(pos.row, g, 'row') - rowStart) / (rowEnd - rowStart)) * 100),
   };
 }
 
@@ -122,6 +132,16 @@ function toastFor(event: GameEvent, state: GameState): { icon: string; text: str
       return { icon: '💀', text: `${name(state, event.playerId)} went bankrupt`, tileIndex: null };
     case 'game-over':
       return { icon: '🏆', text: `${name(state, event.winnerId)} wins the game!`, tileIndex: null };
+    case 'emergency-fine':
+      return { icon: '🚑', text: `${name(state, event.playerId)} paid a $${event.amount} emergency fine`, tileIndex: null };
+    case 'sunny-day-started':
+      return { icon: '☀️', text: `Sunny day! Rent halved for ${event.turns} turn${event.turns > 1 ? 's' : ''}`, tileIndex: null };
+    case 'sunny-day-ended':
+      return { icon: '☀️', text: 'The sunny day is over', tileIndex: null };
+    case 'rainy-day-started':
+      return { icon: '🌧️', text: `Rainy day! Rent doubled for ${event.turns} turn${event.turns > 1 ? 's' : ''}`, tileIndex: null };
+    case 'rainy-day-ended':
+      return { icon: '🌧️', text: 'The rain has stopped', tileIndex: null };
     default:
       return null;
   }

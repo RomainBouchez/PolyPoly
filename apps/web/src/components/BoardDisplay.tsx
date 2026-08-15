@@ -21,8 +21,8 @@ export function BoardDisplay() {
   const currentPlayer = gameState.players[gameState.turnOrder[gameState.currentPlayerIndex]!];
 
   return (
-    <div className="h-dvh overflow-hidden bg-slate-950 p-4 text-slate-100">
-      <div className="mx-auto flex h-full max-w-7xl gap-4">
+    <div className="h-dvh overflow-hidden bg-slate-950 p-2 text-slate-100">
+      <div className="mx-auto flex h-full max-w-[110rem] gap-4">
         <div className="flex min-w-0 flex-1 items-center justify-center">
           <BoardGrid state={gameState} events={events} myPlayerId="" onAction={NOOP_ACTION}>
             {gameState.phase.type !== 'game-over' && currentPlayer && (
@@ -36,7 +36,7 @@ export function BoardDisplay() {
           </BoardGrid>
         </div>
 
-        <div className="w-80 shrink-0 overflow-y-auto">
+        <div className="w-56 shrink-0 overflow-y-auto">
           <PlayersPanel state={gameState} />
         </div>
       </div>

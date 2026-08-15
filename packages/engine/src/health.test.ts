@@ -3,14 +3,14 @@ import { applyAction } from './applyAction.js';
 import { freshState, P1, P2, scriptedRng } from './testUtils.js';
 
 // Board indices used below (see data/board.europe.ts):
-//  2, 10, 31 = fast food (+cash/-health)   13 = Basic Fit   8 = Chicha
-//  26 = Marché bio   34 = Pharmacie (Bristol)
-//  7, 18, 29 = hospitals   39 = tax, 41 = Nantes (both health-neutral landings)
+//  1, 10, 32 = fast food (+cash/-health)   13 = Basic Fit   8 = Chicha
+//  26 = Marché bio   35 = Pharmacie (Bristol)
+//  6, 18, 29 = hospitals   40 = tax, 42 = Nantes (both health-neutral landings)
 
 describe('illness (double-1)', () => {
   it('costs 20 health at normal health, and unpaid hospital shares go to the vacation pot', () => {
     const state = freshState({ healthMode: true });
-    state.players[P1]!.position = 39; // lands on tile 41 (Nantes) with [1,1] — no health-effect tile
+    state.players[P1]!.position = 40; // lands on tile 42 (Nantes) with [1,1] — no health-effect tile
     state.players[P1]!.health = 50;
 
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
@@ -22,7 +22,7 @@ describe('illness (double-1)', () => {
 
   it('double peine: costs 30 health and doubles hospital payouts, when already in the sick zone', () => {
     const state = freshState({ healthMode: true });
-    state.players[P1]!.position = 39;
+    state.players[P1]!.position = 40;
     state.players[P1]!.health = 15; // already 0-20
 
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
@@ -34,9 +34,9 @@ describe('illness (double-1)', () => {
 
   it('pays each hospital owner by their own hospital count, self-ownership nets to zero', () => {
     const state = freshState({ healthMode: true });
-    state.players[P1]!.position = 39;
+    state.players[P1]!.position = 40;
     state.players[P1]!.health = 50;
-    state.ownership[7] = { ownerId: P2, houses: 0, mortgaged: false }; // P2 owns 1 hospital -> $25
+    state.ownership[6] = { ownerId: P2, houses: 0, mortgaged: false }; // P2 owns 1 hospital -> $25
     state.ownership[18] = { ownerId: P1, houses: 0, mortgaged: false }; // P1 (the sick player) owns 1 -> self-pay, net 0
     // tile 29 stays unowned -> its $25 share goes to the pot
 
@@ -49,9 +49,9 @@ describe('illness (double-1)', () => {
 
   it('scales the payout with the owner\'s own hospital count (1/2/3 -> 25/60/150)', () => {
     const state = freshState({ healthMode: true });
-    state.players[P1]!.position = 39;
+    state.players[P1]!.position = 40;
     state.players[P1]!.health = 50;
-    state.ownership[7] = { ownerId: P2, houses: 0, mortgaged: false };
+    state.ownership[6] = { ownerId: P2, houses: 0, mortgaged: false };
     state.ownership[18] = { ownerId: P2, houses: 0, mortgaged: false };
     state.ownership[29] = { ownerId: P2, houses: 0, mortgaged: false };
 
@@ -63,7 +63,7 @@ describe('illness (double-1)', () => {
 
   it('does not trigger when healthMode is off', () => {
     const state = freshState({ healthMode: false });
-    state.players[P1]!.position = 39;
+    state.players[P1]!.position = 40;
     state.players[P1]!.health = 50;
 
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
@@ -103,17 +103,17 @@ describe('health-effect tiles', () => {
 describe('pharmacy', () => {
   it('resets health to 50 once, then does nothing on a later visit', () => {
     let state = freshState({ healthMode: true });
-    state.players[P1]!.position = 30; // +4 (non-double) -> tile 34, Bristol (pharmacy)
+    state.players[P1]!.position = 31; // +4 (non-double) -> tile 35, Bristol (pharmacy)
     state.players[P1]!.health = 10;
 
     const first = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
     expect(first.state.players[P1]!.health).toBe(50);
     expect(first.state.players[P1]!.pharmacyUsed).toBe(true);
-    expect(first.events.some((e) => e.type === 'health-effect' && e.tileIndex === 34 && e.healthDelta === 40)).toBe(true);
+    expect(first.events.some((e) => e.type === 'health-effect' && e.tileIndex === 35 && e.healthDelta === 40)).toBe(true);
 
     state = first.state;
     state.phase = { type: 'awaiting-roll', playerId: P1 }; // was awaiting-purchase (Bristol was unowned)
-    state.players[P1]!.position = 30;
+    state.players[P1]!.position = 31;
     state.players[P1]!.health = 5;
 
     const second = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
@@ -125,7 +125,7 @@ describe('pharmacy', () => {
 describe('Go bonus interaction with health', () => {
   it('withholds the $200 while in the sick zone, but still grants the health bonus', () => {
     const state = freshState({ healthMode: true });
-    state.players[P1]!.position = 41; // +3 (non-double) wraps past Go to tile 1
+    state.players[P1]!.position = 41; // +3 (non-double) wraps past Go to tile 0
     state.players[P1]!.health = 15;
 
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));

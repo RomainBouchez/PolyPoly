@@ -4,8 +4,15 @@ import type { GameState, PlayerId } from './types.js';
 
 const UNMORTGAGE_INTEREST = 1.1;
 
+function requireOwnersTurn(state: GameState, playerId: PlayerId): void {
+  if (state.turnOrder[state.currentPlayerIndex] !== playerId) {
+    throw new IllegalActionError('You can only mortgage or unmortgage on your own turn');
+  }
+}
+
 export function mortgageProperty(state: GameState, playerId: PlayerId, tileIndex: number): number {
   if (!state.config.mortgage) throw new IllegalActionError('Mortgaging is disabled in this game');
+  requireOwnersTurn(state, playerId);
   const tile = getOwnableTile(state.board, tileIndex);
   const ownership = state.ownership[tileIndex];
   if (!ownership || ownership.ownerId !== playerId) throw new IllegalActionError('You do not own this property');
@@ -19,6 +26,7 @@ export function mortgageProperty(state: GameState, playerId: PlayerId, tileIndex
 }
 
 export function unmortgageProperty(state: GameState, playerId: PlayerId, tileIndex: number): number {
+  requireOwnersTurn(state, playerId);
   const tile = getOwnableTile(state.board, tileIndex);
   const ownership = state.ownership[tileIndex];
   if (!ownership || ownership.ownerId !== playerId) throw new IllegalActionError('You do not own this property');

@@ -69,7 +69,33 @@ export interface CornerTile {
   name: string;
 }
 
-export type Tile = PropertyTile | AirportTile | UtilityTile | HospitalTile | TaxTile | CardTile | CornerTile;
+/** Landing here fines the player if their health is below the emergency
+ *  threshold (only meaningful in health-mode games); see rules.ts. */
+export interface EmergencyTile {
+  kind: 'emergency';
+  index: number;
+  name: string;
+}
+
+/** The inverse of a rainy day — landing here while it's raining cuts the
+ *  rain short and starts a few turns of halved rent instead. Landing here
+ *  while it isn't raining does nothing; see rules.ts. */
+export interface SunnyTile {
+  kind: 'sunny';
+  index: number;
+  name: string;
+}
+
+export type Tile =
+  | PropertyTile
+  | AirportTile
+  | UtilityTile
+  | HospitalTile
+  | TaxTile
+  | CardTile
+  | CornerTile
+  | EmergencyTile
+  | SunnyTile;
 
 export interface Board {
   tiles: Tile[];

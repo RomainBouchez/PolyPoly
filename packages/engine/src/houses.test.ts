@@ -3,12 +3,11 @@ import { IllegalActionError } from './errors.js';
 import { buildHouse, sellHouse } from './houses.js';
 import { freshState, P1 } from './testUtils.js';
 
-// Portugal group: tiles 1 (Sintra,60), 2 (Porto,60), 4 (Lisbon,80). houseCost 30/30/40.
+// Portugal group: tiles 1 (Porto,60), 3 (Lisbon,80). houseCost 30/40.
 
 function ownFullPortugal(state: ReturnType<typeof freshState>) {
   state.ownership[1] = { ownerId: P1, houses: 0, mortgaged: false };
-  state.ownership[2] = { ownerId: P1, houses: 0, mortgaged: false };
-  state.ownership[4] = { ownerId: P1, houses: 0, mortgaged: false };
+  state.ownership[3] = { ownerId: P1, houses: 0, mortgaged: false };
   state.players[P1]!.cash = 2000;
 }
 
@@ -26,8 +25,7 @@ describe('buildHouse — even build', () => {
     ownFullPortugal(state);
 
     buildHouse(state, P1, 1);
-    buildHouse(state, P1, 2);
-    buildHouse(state, P1, 4);
+    buildHouse(state, P1, 3);
     expect(() => buildHouse(state, P1, 1)).not.toThrow();
     expect(state.ownership[1]!.houses).toBe(2);
   });
@@ -85,7 +83,7 @@ describe('buildHouse — ownership requirements', () => {
   it('rejects building while a property in the set is mortgaged', () => {
     const state = freshState({ evenBuild: false });
     ownFullPortugal(state);
-    state.ownership[2]!.mortgaged = true;
+    state.ownership[3]!.mortgaged = true;
     expect(() => buildHouse(state, P1, 1)).toThrow(IllegalActionError);
   });
 });
@@ -106,9 +104,8 @@ describe('sellHouse', () => {
     const state = freshState({ evenBuild: true });
     ownFullPortugal(state);
     buildHouse(state, P1, 1);
-    buildHouse(state, P1, 2);
-    // tile 1 and 2 both at 1 house, tile 4 at 0 — selling from tile 4 (already lowest) is illegal
-    expect(() => sellHouse(state, P1, 4)).toThrow(IllegalActionError);
+    // tile 1 at 1 house, tile 3 at 0 (the min) — selling from tile 3 is illegal
+    expect(() => sellHouse(state, P1, 3)).toThrow(IllegalActionError);
     expect(() => sellHouse(state, P1, 1)).not.toThrow();
   });
 });

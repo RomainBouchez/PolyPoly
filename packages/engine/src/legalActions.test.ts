@@ -15,7 +15,7 @@ describe('getLegalActions', () => {
 
   it('offers buy + decline when cash covers the price, decline only when it does not', () => {
     const state = freshState();
-    state.phase = { type: 'awaiting-purchase', playerId: P1, tileIndex: 4 }; // Lisbon, 80
+    state.phase = { type: 'awaiting-purchase', playerId: P1, tileIndex: 3 }; // Lisbon, 80
     expect(getLegalActions(state, P1)).toEqual([
       { type: 'buy', playerId: P1 },
       { type: 'decline-purchase', playerId: P1 },

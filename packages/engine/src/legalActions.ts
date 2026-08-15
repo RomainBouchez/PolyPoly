@@ -48,6 +48,17 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
     actions.push({ type: 'roll-for-jail', playerId });
     if (player.cash >= JAIL_FINE) actions.push({ type: 'pay-jail-fine', playerId });
     if (player.getOutOfJailFreeCards > 0) actions.push({ type: 'use-jail-card', playerId });
+
+    // Taking a hostage doesn't release you from jail — it's an extra option
+    // available alongside paying/rolling, one hostage at a time board-wide.
+    if (state.config.hostageMode && !state.hostage) {
+      for (const [key, ownership] of Object.entries(state.ownership)) {
+        if (ownership.ownerId === playerId || ownership.mortgaged) continue;
+        const owner = state.players[ownership.ownerId];
+        if (!owner || owner.status !== 'active') continue;
+        actions.push({ type: 'take-hostage', playerId, tileIndex: Number(key) });
+      }
+    }
   }
 
   if (phase.type === 'awaiting-purchase' && phase.playerId === playerId) {
@@ -67,11 +78,13 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
     actions.push({ type: 'declare-bankruptcy', playerId });
   }
 
-  // Property management and trades are available any time, not just on your turn.
+  // Property management and trades are available any time, not just on your
+  // turn — except mortgaging, which is restricted to the current player's turn.
+  const isCurrentPlayersTurn = state.turnOrder[state.currentPlayerIndex] === playerId;
   for (const [key, ownership] of Object.entries(state.ownership)) {
     if (ownership.ownerId !== playerId) continue;
     const tileIndex = Number(key);
-    if (state.config.mortgage) {
+    if (state.config.mortgage && isCurrentPlayersTurn) {
       if (!ownership.mortgaged && ownership.houses === 0) actions.push({ type: 'mortgage', playerId, tileIndex });
       if (ownership.mortgaged) actions.push({ type: 'unmortgage', playerId, tileIndex });
     }

@@ -6,10 +6,10 @@ import { DEFAULT_PLAYERS, freshState, P1, P2, scriptedRng } from './testUtils.js
 describe('roll — movement', () => {
   it('moves the player by the dice sum and ends the turn on a non-double', () => {
     const state = freshState();
-    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));
 
-    expect(next.players[P1]!.position).toBe(4); // 1+3
-    expect(next.phase).toEqual({ type: 'awaiting-purchase', playerId: P1, tileIndex: 4 }); // Lisbon
+    expect(next.players[P1]!.position).toBe(3); // 1+2
+    expect(next.phase).toEqual({ type: 'awaiting-purchase', playerId: P1, tileIndex: 3 }); // Lisbon
     expect(events.some((e) => e.type === 'moved')).toBe(true);
     expect(events.some((e) => e.type === 'turn-ended')).toBe(false); // purchase pending, turn not over yet
   });
@@ -18,8 +18,8 @@ describe('roll — movement', () => {
     const state = freshState();
     state.players[P1]!.position = 41;
     const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([2, 2]));
-    // 41 + 4 = 45 % 43 = 2, wrapped past Go. Note: [2,2] is a double, handled in its own test below.
-    expect(next.players[P1]!.position).toBe(2);
+    // 41 + 4 = 45 % 44 = 1, wrapped past Go. Note: [2,2] is a double, handled in its own test below.
+    expect(next.players[P1]!.position).toBe(1);
     expect(next.players[P1]!.cash).toBe(1500 + 200);
     expect(events.some((e) => e.type === 'collected-go')).toBe(true);
   });
@@ -35,10 +35,10 @@ describe('roll — movement', () => {
 describe('roll — doubles', () => {
   it('grants a reroll to the same player after a double', () => {
     const state = freshState({ auction: false }); // auction flow is covered separately below
-    // 1+1 lands on tile 2 (Porto, unowned) -> purchase pending overrides the reroll phase either way,
+    // 3+3 lands on tile 6 (Central Hospital, unowned) -> purchase pending overrides the reroll phase either way,
     // so decline first, then check the phase falls back to awaiting-roll for the same player.
-    const { state: afterRoll } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1]));
-    expect(afterRoll.phase).toEqual({ type: 'awaiting-purchase', playerId: P1, tileIndex: 2 });
+    const { state: afterRoll } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([3, 3]));
+    expect(afterRoll.phase).toEqual({ type: 'awaiting-purchase', playerId: P1, tileIndex: 6 });
 
     const { state: afterDecline } = applyAction(afterRoll, { type: 'decline-purchase', playerId: P1 }, scriptedRng([]));
     expect(afterDecline.phase).toEqual({ type: 'awaiting-roll', playerId: P1 });
@@ -47,9 +47,9 @@ describe('roll — doubles', () => {
 
   it('sends the player to jail after three consecutive doubles', () => {
     let state = freshState({ auction: false });
-    state = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1])).state; // double 1, lands on tile 2
+    state = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([3, 3])).state; // double 1, lands on tile 6
     state = applyAction(state, { type: 'decline-purchase', playerId: P1 }, scriptedRng([])).state;
-    state = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([3, 3])).state; // double 2, tile 8
+    state = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 1])).state; // double 2, tile 8
     state = applyAction(state, { type: 'decline-purchase', playerId: P1 }, scriptedRng([])).state;
 
     const { state: afterThird, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([5, 5]));
@@ -65,28 +65,28 @@ describe('roll — doubles', () => {
 describe('buying and declining property', () => {
   it('buy: deducts price, records ownership, ends the turn (non-double roll)', () => {
     const state = freshState();
-    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3])).state; // tile 4, Lisbon 80
+    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2])).state; // tile 3, Lisbon 80
     const { state: bought, events } = applyAction(rolled, { type: 'buy', playerId: P1 }, scriptedRng([]));
 
     expect(bought.players[P1]!.cash).toBe(1500 - 80);
-    expect(bought.ownership[4]).toEqual({ ownerId: P1, houses: 0, mortgaged: false });
+    expect(bought.ownership[3]).toEqual({ ownerId: P1, houses: 0, mortgaged: false });
     expect(events.some((e) => e.type === 'purchased')).toBe(true);
     expect(bought.turnOrder[bought.currentPlayerIndex]).toBe(P2); // turn advanced
   });
 
   it('decline: leaves the tile unowned and ends the turn', () => {
     const state = freshState({ auction: false });
-    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3])).state;
+    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2])).state;
     const { state: declined } = applyAction(rolled, { type: 'decline-purchase', playerId: P1 }, scriptedRng([]));
 
-    expect(declined.ownership[4]).toBeUndefined();
+    expect(declined.ownership[3]).toBeUndefined();
     expect(declined.turnOrder[declined.currentPlayerIndex]).toBe(P2);
   });
 
   it('rejects buying without enough cash', () => {
     const state = freshState();
     state.players[P1]!.cash = 10;
-    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3])).state;
+    const rolled = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2])).state;
     expect(() => applyAction(rolled, { type: 'buy', playerId: P1 }, scriptedRng([]))).toThrow(IllegalActionError);
   });
 });
@@ -94,11 +94,11 @@ describe('buying and declining property', () => {
 describe('rent', () => {
   it('is paid to the owner when landing on their property', () => {
     const state = freshState();
-    state.ownership[4] = { ownerId: P2, houses: 0, mortgaged: false }; // Lisbon, price 80
-    const tile = state.board.tiles[4]!;
+    state.ownership[3] = { ownerId: P2, houses: 0, mortgaged: false }; // Lisbon, price 80
+    const tile = state.board.tiles[3]!;
     if (tile.kind !== 'property') throw new Error('expected property');
 
-    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));
 
     expect(next.players[P1]!.cash).toBe(1500 - tile.rentLadder[0]);
     expect(next.players[P2]!.cash).toBe(1500 + tile.rentLadder[0]);
@@ -109,7 +109,7 @@ describe('rent', () => {
 describe('tax', () => {
   it('deducts the tax amount from the player', () => {
     const state = freshState();
-    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 4])); // tile 5, Departure Tax 200
+    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3])); // tile 4, Departure Tax 200
 
     expect(next.players[P1]!.cash).toBe(1500 - 200);
     expect(events.some((e) => e.type === 'tax-paid')).toBe(true);

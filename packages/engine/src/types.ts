@@ -39,6 +39,38 @@ export interface HeldJailCard {
   playerId: PlayerId;
 }
 
+/** A temporary alliance between two players — see rules.ts's isAllied and
+ *  ALLIANCE_DURATION_TURNS/ALLIANCE_RENT_MULTIPLIER. Decremented once per
+ *  finished turn (any player's turn, not per game round). */
+export interface Alliance {
+  players: [PlayerId, PlayerId];
+  turnsRemaining: number;
+}
+
+/** Scheduled once at game creation (config.rainyDay) via the game's own
+ *  seeded Rng, so replays stay deterministic. `triggerTurn`/`durationTurns`
+ *  are null/0 when the config toggle is off. */
+export interface RainyDayState {
+  triggerTurn: number | null;
+  durationTurns: number;
+  turnsRemaining: number;
+  triggered: boolean;
+}
+
+/** Started by landing on the 'sunny' tile while it's raining — see the
+ *  'sunny' case in applyAction.ts's resolveTile and rules.ts's computeRent. */
+export interface SunnyDayState {
+  turnsRemaining: number;
+}
+
+/** At most one property held hostage at a time (config.hostageMode) — see
+ *  the 'take-hostage' action and rules.ts's computeRent. */
+export interface HostageState {
+  tileIndex: number;
+  kidnapperId: PlayerId;
+  ownerId: PlayerId;
+}
+
 export interface TradeOffer {
   id: number;
   fromId: PlayerId;
@@ -84,6 +116,10 @@ export interface GameState {
   heldJailCards: HeldJailCard[];
   pendingTrades: TradeOffer[];
   nextTradeId: number;
+  alliances: Alliance[];
+  rainyDay: RainyDayState;
+  sunnyDay: SunnyDayState;
+  hostage: HostageState | null;
 }
 
 export type GameAction =
@@ -114,7 +150,9 @@ export type GameAction =
   | { type: 'cancel-trade'; playerId: PlayerId; tradeId: number }
   | { type: 'pay-debt'; playerId: PlayerId }
   | { type: 'declare-bankruptcy'; playerId: PlayerId }
-  | { type: 'check-time-limit'; elapsedMinutes: number };
+  | { type: 'check-time-limit'; elapsedMinutes: number }
+  | { type: 'transfer-health'; playerId: PlayerId; toId: PlayerId; amount: number }
+  | { type: 'take-hostage'; playerId: PlayerId; tileIndex: number };
 
 export type GameEvent =
   | { type: 'rolled'; playerId: PlayerId; dice: [number, number] }
@@ -149,7 +187,17 @@ export type GameEvent =
   | { type: 'debt-settled'; playerId: PlayerId }
   | { type: 'bankrupt'; playerId: PlayerId; creditorId: PlayerId | 'bank' }
   | { type: 'turn-ended'; playerId: PlayerId; nextPlayerId: PlayerId }
-  | { type: 'game-over'; winnerId: PlayerId };
+  | { type: 'game-over'; winnerId: PlayerId }
+  | { type: 'alliance-formed'; players: [PlayerId, PlayerId] }
+  | { type: 'alliance-ended'; players: [PlayerId, PlayerId] }
+  | { type: 'health-transferred'; fromId: PlayerId; toId: PlayerId; amount: number }
+  | { type: 'rainy-day-started'; turns: number }
+  | { type: 'rainy-day-ended' }
+  | { type: 'sunny-day-started'; turns: number }
+  | { type: 'sunny-day-ended' }
+  | { type: 'emergency-fine'; playerId: PlayerId; amount: number }
+  | { type: 'hostage-taken'; playerId: PlayerId; tileIndex: number; ownerId: PlayerId }
+  | { type: 'hostage-released'; playerId: PlayerId; tileIndex: number };
 
 export type PropertyGroupTotals = Partial<Record<PropertyGroup, number>>;
 

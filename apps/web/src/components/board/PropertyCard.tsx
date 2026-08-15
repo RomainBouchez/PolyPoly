@@ -1,6 +1,23 @@
 import { motion, type PanInfo } from 'motion/react';
 import { X } from 'lucide-react';
-import { getLegalActions, type GameAction, type GameState, type PlayerId } from '@polypoly/engine';
+import {
+  AIRPORT_RENT_BY_COUNT,
+  EMERGENCY_FINE,
+  EMERGENCY_HEALTH_THRESHOLD,
+  GO_SALARY,
+  HOSPITAL_PAYOUT,
+  JAIL_FINE,
+  SUNNY_DAY_DURATION_MAX,
+  SUNNY_DAY_DURATION_MIN,
+  UTILITY_RENT_MULTIPLIER_BOTH,
+  UTILITY_RENT_MULTIPLIER_ONE,
+  getLegalActions,
+  isOwnable,
+  type GameAction,
+  type GameState,
+  type PlayerId,
+} from '@polypoly/engine';
+import { tileIcon } from './BoardTile.js';
 
 interface PropertyCardProps {
   state: GameState;
@@ -19,7 +36,7 @@ const DISMISS_VELOCITY = 800;
 
 export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }: PropertyCardProps) {
   const tile = state.board.tiles[tileIndex];
-  if (!tile || (tile.kind !== 'property' && tile.kind !== 'airport' && tile.kind !== 'utility' && tile.kind !== 'hospital')) return null;
+  if (!tile) return null;
 
   const ownership = state.ownership[tileIndex];
   const owner = ownership ? state.players[ownership.ownerId] : null;
@@ -64,7 +81,16 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
         </div>
 
         <div className="relative bg-slate-800/60 px-4 py-3 text-center">
-          <h2 className="text-lg font-bold tracking-tight">{tile.name}</h2>
+          {(tile.kind === 'airport' || tile.kind === 'hospital' || tile.kind === 'utility') && (
+            <div className="relative mx-auto mb-1 flex h-14 w-14 items-center justify-center">
+              <div
+                className="absolute inset-0 rounded-full blur-md"
+                style={{ background: 'radial-gradient(circle, rgba(148,163,253,0.45) 0%, transparent 70%)' }}
+              />
+              <span className="relative text-3xl leading-none drop-shadow-[0_0_6px_rgba(255,255,255,0.5)]">{tileIcon(tile)}</span>
+            </div>
+          )}
+          <h2 className="text-lg font-bold tracking-tight">{tileTitle(tile)}</h2>
           <button
             onClick={onClose}
             className="absolute right-2.5 top-2 rounded-full p-1.5 text-slate-400 transition-colors active:bg-white/10 active:text-slate-200"
@@ -101,18 +127,119 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
           )}
 
           {tile.kind === 'airport' && (
-            <div className="px-4 py-2 text-sm text-slate-300">
-              <p>Rent: $25 / $50 / $100 / $200 depending on how many airports the owner holds.</p>
+            <div className="px-4 py-2">
+              <div className="flex justify-between text-xs uppercase tracking-wide text-slate-500">
+                <span>when</span>
+                <span>get</span>
+              </div>
+              {AIRPORT_RENT_BY_COUNT.map((rent, i) => {
+                const count = i + 1;
+                const owned = ownedCount(state, ownership?.ownerId, 'airport');
+                return (
+                  <div
+                    key={i}
+                    className={`flex justify-between rounded-md px-2 py-1.5 text-sm ${
+                      owned === count ? 'bg-slate-800 font-semibold text-white' : 'text-slate-300'
+                    }`}
+                  >
+                    <span>{count === 1 ? 'one airport is owned' : `${count} airports are owned`}</span>
+                    <span className="tabular-nums">${rent}</span>
+                  </div>
+                );
+              })}
             </div>
           )}
+
+          {tile.kind === 'hospital' && (
+            <div className="px-4 py-2">
+              <p className="mb-1 text-xs text-slate-500">No rent for landing here — pays out when another player gets sick (health mode).</p>
+              <div className="flex justify-between text-xs uppercase tracking-wide text-slate-500">
+                <span>when</span>
+                <span>get</span>
+              </div>
+              {HOSPITAL_PAYOUT.map((payout, i) => {
+                const count = i + 1;
+                const owned = ownedCount(state, ownership?.ownerId, 'hospital');
+                return (
+                  <div
+                    key={i}
+                    className={`flex justify-between rounded-md px-2 py-1.5 text-sm ${
+                      owned === count ? 'bg-slate-800 font-semibold text-white' : 'text-slate-300'
+                    }`}
+                  >
+                    <span>{count === 1 ? 'one hospital is owned' : `${count} hospitals are owned`}</span>
+                    <span className="tabular-nums">${payout}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {tile.kind === 'utility' && (
             <div className="px-4 py-2 text-sm text-slate-300">
-              <p>Rent: dice roll ×4 with one utility, ×10 with both.</p>
+              <p>
+                If one company is owned, get ${UTILITY_RENT_MULTIPLIER_ONE} x 🎲
+              </p>
+              <p className="mt-1">
+                If two companies are owned, get ${UTILITY_RENT_MULTIPLIER_BOTH} x 🎲
+              </p>
             </div>
           )}
-          {tile.kind === 'hospital' && (
+
+          {tile.kind === 'go' && (
             <div className="px-4 py-2 text-sm text-slate-300">
-              <p>🏥 No rent for landing here. Pays out to the owner whenever another player gets sick (health mode).</p>
+              <p>➡️ Collect ${GO_SALARY} every time you pass or land here.</p>
+            </div>
+          )}
+
+          {tile.kind === 'jail' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>🚔 Just passing through here is free. Sent to jail elsewhere? Pay ${JAIL_FINE}, roll doubles, or use a Get Out of Jail Free card to get out.</p>
+            </div>
+          )}
+
+          {tile.kind === 'go-to-jail' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>👮 Landing here sends you straight to jail — no passing Go, no collecting ${GO_SALARY}.</p>
+            </div>
+          )}
+
+          {tile.kind === 'vacation' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>
+                🏖️{' '}
+                {state.config.vacationCash
+                  ? 'Collect the whole vacation pot — filled by taxes and fines paid to the bank.'
+                  : 'A free rest stop — nothing happens.'}
+              </p>
+            </div>
+          )}
+
+          {tile.kind === 'tax' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>💸 Pay ${tile.amount} to the bank when you land here.</p>
+            </div>
+          )}
+
+          {tile.kind === 'card' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>{tile.deck === 'travel' ? '🧳' : '🛃'} Draw a card from the {tile.deck === 'travel' ? 'Travel' : 'Customs'} deck and follow its effect.</p>
+            </div>
+          )}
+
+          {tile.kind === 'emergency' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>
+                🚑 If your health is below {EMERGENCY_HEALTH_THRESHOLD}, pay a ${EMERGENCY_FINE} emergency fine. Above that, nothing happens. (health mode)
+              </p>
+            </div>
+          )}
+
+          {tile.kind === 'sunny' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>
+                ☀️ If it's raining, landing here cuts the rain short and halves rent for {SUNNY_DAY_DURATION_MIN}-{SUNNY_DAY_DURATION_MAX} turns. If it isn't raining, nothing happens.
+              </p>
             </div>
           )}
 
@@ -141,42 +268,58 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
             </div>
           )}
 
-          <div className="flex items-center gap-2 border-t border-white/10 px-4 py-2 text-sm">
-            <span className="text-slate-500">Owner</span>
-            {owner ? (
-              <span className="flex items-center gap-1.5 font-medium">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: owner.color }} />
-                {owner.name}
-              </span>
-            ) : (
-              <span className="text-slate-400">Unowned</span>
-            )}
-          </div>
-
-          <div className="grid grid-cols-3 gap-2 border-t border-white/10 px-4 py-3 text-center text-sm">
-            <div>
-              <div className="text-slate-500">Price</div>
-              <div className="font-semibold tabular-nums">${tile.price}</div>
+          {isOwnable(tile) && (
+            <div className="flex items-center gap-2 border-t border-white/10 px-4 py-2 text-sm">
+              <span className="text-slate-500">Owner</span>
+              {owner ? (
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: owner.color }} />
+                  {owner.name}
+                </span>
+              ) : (
+                <span className="text-slate-400">No owner</span>
+              )}
             </div>
-            {tile.kind === 'property' && (
-              <>
-                <div>
-                  <div className="text-slate-500">🏠</div>
-                  <div className="font-semibold tabular-nums">${tile.houseCost}</div>
-                </div>
-                <div>
-                  <div className="text-slate-500">🏨</div>
-                  <div className="font-semibold tabular-nums">${tile.houseCost}</div>
-                </div>
-              </>
-            )}
-          </div>
+          )}
+
+          {isOwnable(tile) && (
+            <div className="grid grid-cols-3 gap-2 border-t border-white/10 px-4 py-3 text-center text-sm">
+              <div>
+                <div className="text-slate-500">Price</div>
+                <div className="font-semibold tabular-nums">${tile.price}</div>
+              </div>
+              {tile.kind === 'property' && (
+                <>
+                  <div>
+                    <div className="text-slate-500">🏠</div>
+                    <div className="font-semibold tabular-nums">${tile.houseCost}</div>
+                  </div>
+                  <div>
+                    <div className="text-slate-500">🏨</div>
+                    <div className="font-semibold tabular-nums">${tile.houseCost}</div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="pb-[env(safe-area-inset-bottom)]" />
       </motion.div>
     </motion.div>
   );
+}
+
+/** How many tiles of `kind` a player owns — used to highlight which
+ *  when/get row currently applies on the airport/hospital rent tables. */
+function ownedCount(state: GameState, ownerId: PlayerId | undefined, kind: 'airport' | 'hospital'): number {
+  if (!ownerId) return 0;
+  return state.board.tiles.filter((t) => t.kind === kind && state.ownership[t.index]?.ownerId === ownerId).length;
+}
+
+function tileTitle(tile: { kind: string; name?: string; deck?: 'travel' | 'customs' }): string {
+  if (tile.kind === 'card') return tile.deck === 'travel' ? 'Travel' : 'Customs';
+  return tile.name ?? tile.kind;
 }
 
 function healthEffectLabel(effect: { cashDelta: number; healthDelta: number; pharmacy?: boolean }): string {
@@ -192,11 +335,12 @@ function IconButton({ children, label, onClick }: { children: string; label: str
     <motion.button
       onClick={onClick}
       title={label}
-      whileTap={{ scale: 0.88 }}
+      whileTap={{ scale: 0.94 }}
       transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
-      className="flex h-11 w-11 items-center justify-center rounded-full bg-violet-600 text-lg text-white active:bg-violet-500"
+      className="flex flex-col items-center gap-0.5 rounded-2xl bg-violet-600 px-2.5 py-1.5 text-white active:bg-violet-500"
     >
-      {children}
+      <span className="text-lg leading-none">{children}</span>
+      <span className="text-[10px] font-medium leading-none whitespace-nowrap">{label}</span>
     </motion.button>
   );
 }

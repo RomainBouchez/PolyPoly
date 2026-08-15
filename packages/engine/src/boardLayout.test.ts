@@ -4,7 +4,7 @@ import { computeBoardLayout } from './boardLayout.js';
 import type { Board } from './board.types.js';
 
 describe('computeBoardLayout', () => {
-  it('places all 43 tiles with no collisions and no overflow past the grid', () => {
+  it('places all 42 tiles with no collisions and no overflow past the grid', () => {
     const layout = computeBoardLayout(boardEurope);
     expect(Object.keys(layout.positions)).toHaveLength(boardEurope.tiles.length);
 
@@ -21,7 +21,7 @@ describe('computeBoardLayout', () => {
     }
   });
 
-  it('sizes the grid to fit the longest side, tolerating an uneven one (10/10/10/9)', () => {
+  it('sizes the grid to fit the longest side, tolerating uneven ones (9/10/9/10)', () => {
     const layout = computeBoardLayout(boardEurope);
     // 4 corners + longest side (10) + 2 = 12x12
     expect(layout.gridSize).toBe(12);
@@ -29,9 +29,13 @@ describe('computeBoardLayout', () => {
 
   it('reproduces the original 11x11 layout for a classic 40-tile board (regression guard)', () => {
     const classicBoard: Board = {
-      tiles: boardEurope.tiles
-        .filter((t) => !(t.kind === 'hospital'))
-        .map((t, i) => ({ ...t, index: i })) as Board['tiles'],
+      tiles: Array.from({ length: 40 }, (_, i) => {
+        if (i === 0) return { kind: 'go', index: 0, name: 'Go' };
+        if (i === 10) return { kind: 'jail', index: 10, name: 'Jail / Just Visiting' };
+        if (i === 20) return { kind: 'vacation', index: 20, name: 'Vacation' };
+        if (i === 30) return { kind: 'go-to-jail', index: 30, name: 'Go To Jail' };
+        return { kind: 'tax', index: i, name: `Tile ${i}`, amount: 0 };
+      }) as Board['tiles'],
     };
     const layout = computeBoardLayout(classicBoard);
     expect(layout.gridSize).toBe(11);

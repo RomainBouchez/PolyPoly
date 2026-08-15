@@ -23,8 +23,18 @@ export interface AuctionResult {
   resumePlayerId: PlayerId;
 }
 
+/** Active players eligible to bid — jailed players are excluded, matching
+ *  the common house rule that jail blocks auction participation (jail only
+ *  leaves buying/selling/trading/mortgaging your own turn unaffected). */
+export function auctionEligiblePlayerIds(state: GameState): PlayerId[] {
+  return activePlayerIds(state).filter((id) => !state.players[id]?.inJail);
+}
+
 export function startAuction(state: GameState, tileIndex: number, resumePlayerId: PlayerId): AuctionPhaseData {
-  const active = activePlayerIds(state);
+  const eligible = auctionEligiblePlayerIds(state);
+  // The decliner must still be able to resume their turn afterwards, so keep
+  // them in the order even if they're jailed themselves.
+  const active = eligible.includes(resumePlayerId) ? eligible : [...eligible, resumePlayerId];
   const startIdx = active.indexOf(resumePlayerId);
   const order = [...active.slice(startIdx + 1), ...active.slice(0, startIdx + 1)];
   return {

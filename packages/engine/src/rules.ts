@@ -14,7 +14,29 @@ export const HOSPITAL_PAYOUT = [25, 60, 150];
 export const GO_HEALTH_BONUS = 5;
 export const PHARMACY_RESET_HEALTH = 50;
 
-const AIRPORT_RENT_BY_COUNT = [25, 50, 100, 200];
+export const ALLIANCE_DURATION_TURNS = 3;
+/** Rent paid between two allied players is cut to this fraction. */
+export const ALLIANCE_RENT_MULTIPLIER = 0.5;
+
+/** Rainy day triggers at a random turn number in this inclusive window,
+ *  chosen once at game creation, then lasts a random 1-2 turns. */
+export const RAINY_DAY_TRIGGER_MIN = 3;
+export const RAINY_DAY_TRIGGER_MAX = 10;
+
+/** Landing on the 'sunny' tile while it's raining cuts the rain short and
+ *  starts a random 1-2 turns of halved rent instead. */
+export const SUNNY_DAY_DURATION_MIN = 1;
+export const SUNNY_DAY_DURATION_MAX = 2;
+export const SUNNY_DAY_RENT_MULTIPLIER = 0.5;
+
+/** Landing on the 'emergency' tile below this health fines the player —
+ *  above it, nothing happens. Only meaningful in health-mode games. */
+export const EMERGENCY_HEALTH_THRESHOLD = 30;
+export const EMERGENCY_FINE = 150;
+
+export const AIRPORT_RENT_BY_COUNT = [25, 50, 100, 200];
+export const UTILITY_RENT_MULTIPLIER_ONE = 4;
+export const UTILITY_RENT_MULTIPLIER_BOTH = 10;
 
 export function ownsFullGroup(state: GameState, ownerId: PlayerId, tileIndex: number): boolean {
   const tile = getTile(state.board, tileIndex);
@@ -27,7 +49,10 @@ function countOwned(state: GameState, ownerId: PlayerId, tiles: { index: number 
   return tiles.filter((tile) => state.ownership[tile.index]?.ownerId === ownerId).length;
 }
 
-/** Rent owed on `tileIndex` right now, or 0 if unowned, self-owned, or mortgaged. */
+/** Rent owed on `tileIndex` right now, or 0 if unowned, self-owned, or mortgaged.
+ *  Does not account for the alliance rent discount — that's applied by the
+ *  caller in applyAction.ts, since it depends on who's paying, not just the
+ *  tile/owner (see isAllied below). */
 export function computeRent(state: GameState, tileIndex: number, diceSum: number): number {
   const tile = getOwnableTile(state.board, tileIndex);
   const ownership = state.ownership[tileIndex];
@@ -36,28 +61,39 @@ export function computeRent(state: GameState, tileIndex: number, diceSum: number
   const owner = state.players[ownership.ownerId];
   if (!owner) return 0;
   if (state.config.noRentInPrison && owner.inJail) return 0;
+  if (state.hostage && state.hostage.tileIndex === tileIndex && state.hostage.ownerId === ownership.ownerId) return 0;
 
+  let rent: number;
   if (tile.kind === 'property') {
-    let rent = tile.rentLadder[ownership.houses] ?? tile.rentLadder[0];
+    rent = tile.rentLadder[ownership.houses] ?? tile.rentLadder[0];
     if (ownership.houses === 0 && state.config.doubleRentOnFullSet && ownsFullGroup(state, owner.id, tileIndex)) {
       rent *= 2;
     }
-    return rent;
-  }
-
-  if (tile.kind === 'airport') {
+  } else if (tile.kind === 'airport') {
     const count = countOwned(state, owner.id, airportTiles(state.board));
-    return AIRPORT_RENT_BY_COUNT[Math.min(count, 4) - 1] ?? 0;
+    rent = AIRPORT_RENT_BY_COUNT[Math.min(count, 4) - 1] ?? 0;
+  } else if (tile.kind === 'hospital') {
+    // Hospitals never charge rent for landing on them — their only income is
+    // the illness payout (see triggerIllness in applyAction.ts).
+    return 0;
+  } else {
+    // utility
+    const count = countOwned(state, owner.id, utilityTiles(state.board));
+    const multiplier = count >= 2 ? UTILITY_RENT_MULTIPLIER_BOTH : UTILITY_RENT_MULTIPLIER_ONE;
+    rent = diceSum * multiplier;
   }
 
-  // Hospitals never charge rent for landing on them — their only income is
-  // the illness payout (see triggerIllness in applyAction.ts).
-  if (tile.kind === 'hospital') return 0;
+  if (state.config.rainyDay && state.rainyDay.turnsRemaining > 0) {
+    rent *= 2;
+  } else if (state.config.rainyDay && state.sunnyDay.turnsRemaining > 0) {
+    rent = Math.round(rent * SUNNY_DAY_RENT_MULTIPLIER);
+  }
+  return rent;
+}
 
-  // utility
-  const count = countOwned(state, owner.id, utilityTiles(state.board));
-  const multiplier = count >= 2 ? 10 : 4;
-  return diceSum * multiplier;
+/** Whether two players currently share an active temporary alliance. */
+export function isAllied(state: GameState, aId: PlayerId, bId: PlayerId): boolean {
+  return state.alliances.some((a) => a.players.includes(aId) && a.players.includes(bId));
 }
 
 export function netWorth(state: GameState, playerId: PlayerId): number {

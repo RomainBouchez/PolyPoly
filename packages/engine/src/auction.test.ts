@@ -49,4 +49,25 @@ describe('auction', () => {
     const state = declineIntoAuction();
     expect(() => applyAction(state, { type: 'auction-bid', playerId: P3, amount: 10 }, scriptedRng([]))).toThrow();
   });
+
+  it('excludes jailed players from the bidding order', () => {
+    const state = freshState({ auction: true });
+    state.players[P2]!.inJail = true;
+    state.phase = { type: 'awaiting-purchase', playerId: P1, tileIndex: 1 };
+    const after = applyAction(state, { type: 'decline-purchase', playerId: P1 }, scriptedRng([])).state;
+    expect(after.phase).toMatchObject({ type: 'auction', order: [P3, P1], turnPlayerId: P3 });
+  });
+
+  it('skips the auction as a no-sale when the decliner is the only eligible bidder left', () => {
+    const state = freshState({ auction: true });
+    state.players[P2]!.inJail = true;
+    state.players[P3]!.inJail = true;
+    state.phase = { type: 'awaiting-purchase', playerId: P1, tileIndex: 1 };
+    const { state: after, events } = applyAction(state, { type: 'decline-purchase', playerId: P1 }, scriptedRng([]));
+
+    expect(after.phase.type).not.toBe('auction');
+    expect(after.ownership[1]).toBeUndefined();
+    expect(events.some((e) => e.type === 'auction-no-sale' && e.tileIndex === 1)).toBe(true);
+    expect(events.some((e) => e.type === 'auction-started')).toBe(false);
+  });
 });

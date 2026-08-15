@@ -19,6 +19,7 @@ const TURN_ACTION_TYPES = new Set<GameAction['type']>([
   'auction-pass',
   'pay-debt',
   'declare-bankruptcy',
+  'take-hostage',
 ]);
 
 export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
@@ -136,7 +137,8 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
 
 function PurchaseInfo({ state, tileIndex }: { state: GameState; tileIndex: number }) {
   const tile = state.board.tiles[tileIndex];
-  if (!tile || (tile.kind !== 'property' && tile.kind !== 'airport' && tile.kind !== 'utility')) return null;
+  if (!tile || (tile.kind !== 'property' && tile.kind !== 'airport' && tile.kind !== 'utility' && tile.kind !== 'hospital'))
+    return null;
   return (
     <p className="rounded-full bg-white/5 px-3 py-1.5 text-center text-sm text-slate-300 ring-1 ring-inset ring-white/10">
       {tile.name} — <span className="font-semibold text-amber-400">${tile.price}</span>
@@ -177,6 +179,11 @@ function actionLabel(action: GameAction, state: GameState): string {
       return state.phase.type === 'awaiting-debt-settlement' ? `Pay $${state.phase.amount}` : 'Pay debt';
     case 'declare-bankruptcy':
       return 'Declare bankruptcy';
+    case 'take-hostage': {
+      const tile = state.board.tiles[action.tileIndex];
+      const name = tile && 'name' in tile ? tile.name : `tile ${action.tileIndex}`;
+      return `🎭 Kidnap ${name}`;
+    }
     default:
       return action.type;
   }

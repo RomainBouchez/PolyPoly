@@ -21,6 +21,14 @@ export interface GameConfig {
    *  sick and forces a payout to hospital owners, and being sick blocks the
    *  Go cash bonus. */
   healthMode: boolean;
+  /** A "form alliance" card lets two players share halved rent between each
+   *  other, and (with healthMode also on) transfer health, for 3 turns. */
+  allianceMode: boolean;
+  /** At a random turn early in the game, rent everywhere doubles for 1-2 turns. */
+  rainyDay: boolean;
+  /** While in jail, a player may take one opponent's property hostage —
+   *  voiding its rent — until they get out of jail. */
+  hostageMode: boolean;
 
   maxPlayers: number;
   startingCash: number;
@@ -44,6 +52,9 @@ export const DEFAULT_GAME_CONFIG: GameConfig = {
   evenBuild: true,
   limitedHouseSupply: false,
   healthMode: false,
+  allianceMode: false,
+  rainyDay: false,
+  hostageMode: false,
   maxPlayers: 8,
   startingCash: 1500,
   endCondition: { type: 'last-standing' },

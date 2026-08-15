@@ -1,4 +1,4 @@
-import { recordBid, recordPass, startAuction, type AuctionResult } from './auction.js';
+import { auctionEligiblePlayerIds, recordBid, recordPass, startAuction, type AuctionResult } from './auction.js';
 import { boardSize, getOwnableTile, getTile, hospitalTiles, jailTileIndex } from './board.js';
 import { bankrupt, chargePlayer, settleDebt } from './debt.js';
 import { drawCard, findCardById } from './deck.js';
@@ -8,6 +8,10 @@ import { buildHouse, sellHouse } from './houses.js';
 import { mortgageProperty, unmortgageProperty } from './mortgage.js';
 import type { Rng } from './rng.js';
 import {
+  ALLIANCE_DURATION_TURNS,
+  ALLIANCE_RENT_MULTIPLIER,
+  EMERGENCY_FINE,
+  EMERGENCY_HEALTH_THRESHOLD,
   GO_HEALTH_BONUS,
   GO_SALARY,
   HEALTH_MAX,
@@ -18,7 +22,10 @@ import {
   JAIL_FINE,
   MAX_JAIL_TURNS,
   PHARMACY_RESET_HEALTH,
+  SUNNY_DAY_DURATION_MIN,
+  SUNNY_DAY_DURATION_MAX,
   computeRent,
+  isAllied,
 } from './rules.js';
 import { executeTrade, findTrade, validateTrade } from './trade.js';
 import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from './types.js';
@@ -132,6 +139,12 @@ export function applyAction(
     case 'check-time-limit':
       checkTimeLimit(draft, action.elapsedMinutes, events);
       break;
+    case 'transfer-health':
+      handleTransferHealth(draft, action.playerId, action.toId, action.amount, events);
+      break;
+    case 'take-hostage':
+      handleTakeHostage(draft, action.playerId, action.tileIndex, events);
+      break;
   }
 
   return { state: draft, events };
@@ -181,11 +194,12 @@ function handleDeclinePurchase(draft: GameState, playerId: PlayerId, events: Gam
   const phase = requirePhase(draft, 'awaiting-purchase', playerId);
   events.push({ type: 'declined-purchase', playerId, tileIndex: phase.tileIndex });
 
-  if (draft.config.auction) {
+  if (draft.config.auction && auctionEligiblePlayerIds(draft).some((id) => id !== playerId)) {
     draft.phase = startAuction(draft, phase.tileIndex, playerId);
     events.push({ type: 'auction-started', tileIndex: phase.tileIndex });
     return;
   }
+  if (draft.config.auction) events.push({ type: 'auction-no-sale', tileIndex: phase.tileIndex });
   resolveEndOfMove(draft, playerId, events);
 }
 
@@ -209,6 +223,7 @@ function handlePayJailFine(draft: GameState, playerId: PlayerId, events: GameEve
   player.inJail = false;
   player.jailTurns = 0;
   events.push({ type: 'released-from-jail', playerId, method: 'paid-fine' });
+  releaseHostageIfHeldBy(draft, playerId, events);
   draft.phase = { type: 'awaiting-roll', playerId };
 }
 
@@ -226,6 +241,7 @@ function handleUseJailCard(draft: GameState, playerId: PlayerId, events: GameEve
   player.inJail = false;
   player.jailTurns = 0;
   events.push({ type: 'released-from-jail', playerId, method: 'jail-card' });
+  releaseHostageIfHeldBy(draft, playerId, events);
   draft.phase = { type: 'awaiting-roll', playerId };
 }
 
@@ -245,6 +261,7 @@ function handleRollForJail(draft: GameState, playerId: PlayerId, rng: Rng, event
       player.inJail = false;
       player.jailTurns = 0;
       events.push({ type: 'released-from-jail', playerId, method: 'max-turns' });
+      releaseHostageIfHeldBy(draft, playerId, events);
     } else {
       events.push({ type: 'stayed-in-jail', playerId });
     }
@@ -256,6 +273,7 @@ function handleRollForJail(draft: GameState, playerId: PlayerId, rng: Rng, event
   player.jailTurns = 0;
   draft.doublesCount = 0; // escaping jail on a double does not earn a bonus roll
   events.push({ type: 'released-from-jail', playerId, method: 'rolled-doubles' });
+  releaseHostageIfHeldBy(draft, playerId, events);
   movePlayer(draft, playerId, d1 + d2, events);
   resolveTile(draft, playerId, player.position, d1 + d2, rng, events);
 }
@@ -330,6 +348,26 @@ function resolveTile(
       applyCardDraw(draft, playerId, tile.deck, rng, events);
       return;
 
+    case 'emergency': {
+      if (draft.config.healthMode && player.health < EMERGENCY_HEALTH_THRESHOLD) {
+        const paid = chargePlayer(draft, playerId, EMERGENCY_FINE, 'bank', events);
+        if (!paid) return;
+        events.push({ type: 'emergency-fine', playerId, amount: EMERGENCY_FINE });
+      }
+      break;
+    }
+
+    case 'sunny': {
+      if (draft.config.rainyDay && draft.rainyDay.turnsRemaining > 0) {
+        draft.rainyDay.turnsRemaining = 0;
+        events.push({ type: 'rainy-day-ended' });
+        const turns = SUNNY_DAY_DURATION_MIN + rng.nextInt(SUNNY_DAY_DURATION_MAX - SUNNY_DAY_DURATION_MIN + 1);
+        draft.sunnyDay.turnsRemaining = turns;
+        events.push({ type: 'sunny-day-started', turns });
+      }
+      break;
+    }
+
     case 'property':
     case 'airport':
     case 'utility':
@@ -340,7 +378,10 @@ function resolveTile(
         return;
       }
       if (ownership.ownerId !== playerId) {
-        const rent = computeRent(draft, tileIndex, diceSum);
+        let rent = computeRent(draft, tileIndex, diceSum);
+        if (draft.config.allianceMode && isAllied(draft, playerId, ownership.ownerId)) {
+          rent = Math.round(rent * ALLIANCE_RENT_MULTIPLIER);
+        }
         if (rent > 0) {
           const paid = chargePlayer(draft, playerId, rent, ownership.ownerId, events);
           if (!paid) return;
@@ -519,6 +560,67 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
       resolveEndOfMove(draft, playerId, events);
       return;
     }
+
+    case 'form-alliance': {
+      // Partner picked at random among other active players not already in
+      // an alliance — each player may only be in one alliance at a time, to
+      // keep rent-sharing/health-transfer targeting unambiguous. Fizzles
+      // (no-op) if the drawer is already allied or no one is eligible.
+      const alreadyAllied = (id: PlayerId) => draft.alliances.some((a) => a.players.includes(id));
+      const eligible = alreadyAllied(playerId)
+        ? []
+        : draft.turnOrder.filter((id) => id !== playerId && draft.players[id]?.status === 'active' && !alreadyAllied(id));
+      if (eligible.length === 0) {
+        events.push({ type: 'card-effect', playerId, description: card.text, cashDelta: 0 });
+        resolveEndOfMove(draft, playerId, events);
+        return;
+      }
+      const partnerId = eligible[rng.nextInt(eligible.length) - 1]!;
+      draft.alliances.push({ players: [playerId, partnerId], turnsRemaining: ALLIANCE_DURATION_TURNS });
+      events.push({ type: 'alliance-formed', players: [playerId, partnerId] });
+      resolveEndOfMove(draft, playerId, events);
+      return;
+    }
+  }
+}
+
+function handleTransferHealth(draft: GameState, playerId: PlayerId, toId: PlayerId, amount: number, events: GameEvent[]): void {
+  if (!draft.config.healthMode || !draft.config.allianceMode) {
+    throw new IllegalActionError('Health transfers are disabled in this game');
+  }
+  if (amount <= 0) throw new IllegalActionError('Transfer amount must be positive');
+  if (!isAllied(draft, playerId, toId)) throw new IllegalActionError('You are not allied with that player');
+
+  const from = requirePlayer(draft, playerId);
+  const to = requirePlayer(draft, toId);
+  if (from.health - amount < 0) throw new IllegalActionError('Not enough health to transfer');
+  if (to.health + amount > HEALTH_MAX) throw new IllegalActionError('That would exceed the health cap');
+
+  from.health -= amount;
+  to.health += amount;
+  events.push({ type: 'health-transferred', fromId: playerId, toId, amount });
+}
+
+function handleTakeHostage(draft: GameState, playerId: PlayerId, tileIndex: number, events: GameEvent[]): void {
+  requirePhase(draft, 'awaiting-jail-decision', playerId);
+  if (!draft.config.hostageMode) throw new IllegalActionError('Hostage-taking is disabled in this game');
+  if (draft.hostage) throw new IllegalActionError('A hostage is already held');
+
+  const ownership = draft.ownership[tileIndex];
+  if (!ownership) throw new IllegalActionError('This tile is not owned');
+  if (ownership.ownerId === playerId) throw new IllegalActionError('You cannot take your own property hostage');
+  if (ownership.mortgaged) throw new IllegalActionError('This property is already mortgaged');
+  const owner = draft.players[ownership.ownerId];
+  if (!owner || owner.status !== 'active') throw new IllegalActionError('Invalid hostage target');
+
+  draft.hostage = { tileIndex, kidnapperId: playerId, ownerId: ownership.ownerId };
+  events.push({ type: 'hostage-taken', playerId, tileIndex, ownerId: ownership.ownerId });
+}
+
+function releaseHostageIfHeldBy(draft: GameState, playerId: PlayerId, events: GameEvent[]): void {
+  if (draft.hostage?.kidnapperId === playerId) {
+    events.push({ type: 'hostage-released', playerId, tileIndex: draft.hostage.tileIndex });
+    draft.hostage = null;
   }
 }
 
@@ -544,9 +646,51 @@ function finishTurn(draft: GameState, events: GameEvent[]): void {
   const currentPlayerId = draft.turnOrder[draft.currentPlayerIndex]!;
   const nextId = advanceToNextActivePlayer(draft);
   events.push({ type: 'turn-ended', playerId: currentPlayerId, nextPlayerId: nextId });
+  tickTurnEffects(draft, events);
   if (checkLastStanding(draft, events)) return;
   if (checkTurnLimit(draft, events)) return;
   startTurnPhase(draft, nextId);
+}
+
+/** Advances per-turn-boundary effects (alliance duration, rainy day
+ *  scheduling/duration) — called once per finished turn, i.e. per player's
+ *  turn, not per full round. */
+function tickTurnEffects(draft: GameState, events: GameEvent[]): void {
+  if (draft.config.rainyDay) {
+    checkRainyDay(draft, events);
+    checkSunnyDay(draft, events);
+  }
+
+  if (draft.config.allianceMode && draft.alliances.length > 0) {
+    draft.alliances = draft.alliances.filter((alliance) => {
+      alliance.turnsRemaining -= 1;
+      if (alliance.turnsRemaining <= 0) {
+        events.push({ type: 'alliance-ended', players: alliance.players });
+        return false;
+      }
+      return true;
+    });
+  }
+}
+
+function checkRainyDay(draft: GameState, events: GameEvent[]): void {
+  const rd = draft.rainyDay;
+  if (!rd.triggered && rd.triggerTurn !== null && draft.turnNumber >= rd.triggerTurn) {
+    rd.triggered = true;
+    rd.turnsRemaining = rd.durationTurns;
+    events.push({ type: 'rainy-day-started', turns: rd.durationTurns });
+  } else if (rd.turnsRemaining > 0) {
+    rd.turnsRemaining -= 1;
+    if (rd.turnsRemaining === 0) events.push({ type: 'rainy-day-ended' });
+  }
+}
+
+function checkSunnyDay(draft: GameState, events: GameEvent[]): void {
+  const sd = draft.sunnyDay;
+  if (sd.turnsRemaining > 0) {
+    sd.turnsRemaining -= 1;
+    if (sd.turnsRemaining === 0) events.push({ type: 'sunny-day-ended' });
+  }
 }
 
 function advanceToNextActivePlayer(draft: GameState): PlayerId {

@@ -3,9 +3,11 @@ import { AnimatePresence, motion, MotionConfig } from 'motion/react';
 import { Gamepad2, Map } from 'lucide-react';
 import type { GameAction, GameEvent, GameState, PlayerId } from '@polypoly/engine';
 import { BoardGrid } from './board/BoardGrid.js';
-import { GROUP_COLORS } from './board/tileLayout.js';
+import { tileIcon } from './board/BoardTile.js';
+import { GROUP_COLORS, GROUP_FLAG_SVG } from './board/tileLayout.js';
 import { PropertyCard } from './board/PropertyCard.js';
 import { ActionPanel } from './game/ActionPanel.js';
+import { AlliancePanel } from './game/AlliancePanel.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
 import { TradePanel } from './game/TradePanel.js';
@@ -145,21 +147,42 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
         {myTiles.length === 0 ? (
           <p className="text-sm text-slate-500">None yet</p>
         ) : (
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-col gap-1 rounded-2xl border border-white/10 bg-slate-900 p-1.5 shadow-lg shadow-black/20">
             {myTiles.map((tileIndex) => {
               const tile = state.board.tiles[tileIndex];
               const label = tile && 'name' in tile ? tile.name : `Tile ${tileIndex}`;
+              const ownership = state.ownership[tileIndex];
               const dot = tile?.kind === 'property' ? GROUP_COLORS[tile.group] : undefined;
+              const flagSvg = tile?.kind === 'property' ? GROUP_FLAG_SVG[tile.group] : undefined;
               return (
                 <motion.button
                   key={tileIndex}
                   onClick={() => setSelectedTile(tileIndex)}
-                  whileTap={{ scale: 0.94 }}
+                  whileTap={{ scale: 0.98 }}
                   transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
-                  className="flex items-center gap-1.5 rounded-full bg-white/5 px-3 py-1 text-xs text-slate-200 ring-1 ring-inset ring-white/10 active:bg-white/10"
+                  className="flex items-center gap-2 rounded-xl bg-white/5 px-2.5 py-1.5 text-left text-xs text-slate-200 ring-1 ring-inset ring-white/10 active:bg-white/10"
                 >
-                  {dot && <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: dot }} />}
-                  {label}
+                  {flagSvg ? (
+                    <span
+                      className="h-4 w-4 shrink-0 overflow-hidden rounded-full border border-white/25 [&>svg]:block [&>svg]:h-full [&>svg]:w-full"
+                      dangerouslySetInnerHTML={{ __html: flagSvg }}
+                    />
+                  ) : tile ? (
+                    <span className="flex h-4 w-4 shrink-0 items-center justify-center text-[11px] leading-none">
+                      {tileIcon(tile)}
+                    </span>
+                  ) : (
+                    dot && <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: dot }} />
+                  )}
+                  <span className="flex-1 truncate font-medium">{label}</span>
+                  {ownership?.mortgaged && (
+                    <span className="shrink-0 rounded-full bg-rose-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-rose-400">
+                      Mortgaged
+                    </span>
+                  )}
+                  {ownership && ownership.houses > 0 && (
+                    <span className="shrink-0 text-[11px]">{ownership.houses === 5 ? '🏨' : '🏠'.repeat(ownership.houses)}</span>
+                  )}
                 </motion.button>
               );
             })}
@@ -169,6 +192,10 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
 
       <div className="mt-3 shrink-0">
         <TradePanel state={state} myPlayerId={myPlayerId} onAction={onAction} />
+      </div>
+
+      <div className="mt-3 shrink-0">
+        <AlliancePanel state={state} myPlayerId={myPlayerId} onAction={onAction} />
       </div>
 
       <div className="mt-3 min-h-[8rem] flex-1">

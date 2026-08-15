@@ -2,7 +2,7 @@ import type { GameConfig } from '@polypoly/shared';
 import { boardEurope } from './board.js';
 import { createInitialDecks } from './deck.js';
 import type { Rng } from './rng.js';
-import { HEALTH_START } from './rules.js';
+import { HEALTH_START, RAINY_DAY_TRIGGER_MAX, RAINY_DAY_TRIGGER_MIN } from './rules.js';
 import type { GameState, Player, PlayerId } from './types.js';
 
 export interface NewPlayerInfo {
@@ -35,6 +35,12 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
 
   const turnOrder = playerInfos.map((info) => info.id);
 
+  // Rolled once up-front (not lazily on first check) so replays stay
+  // deterministic regardless of how many other rng draws happen first.
+  const rainyRange = RAINY_DAY_TRIGGER_MAX - RAINY_DAY_TRIGGER_MIN + 1;
+  const triggerTurn = config.rainyDay ? RAINY_DAY_TRIGGER_MIN + rng.nextInt(rainyRange) - 1 : null;
+  const durationTurns = config.rainyDay ? rng.nextInt(2) : 0;
+
   return {
     board: boardEurope,
     config,
@@ -47,9 +53,13 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
     vacationPot: 0,
     turnNumber: 1,
     bank: { housesRemaining: 32, hotelsRemaining: 12 },
-    decks: createInitialDecks(rng),
+    decks: createInitialDecks(rng, config),
     heldJailCards: [],
     pendingTrades: [],
     nextTradeId: 1,
+    alliances: [],
+    rainyDay: { triggerTurn, durationTurns, turnsRemaining: 0, triggered: false },
+    sunnyDay: { turnsRemaining: 0 },
+    hostage: null,
   };
 }

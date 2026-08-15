@@ -1,3 +1,4 @@
+import type { GameConfig } from '@polypoly/shared';
 import type { Card, CardDeckName, DeckState } from './cards.types.js';
 import { customsDeck, travelDeck } from './data/cards.js';
 import type { Rng } from './rng.js';
@@ -21,10 +22,16 @@ export function shuffle<T>(items: T[], rng: Rng): T[] {
   return result;
 }
 
-export function createInitialDecks(rng: Rng): Record<CardDeckName, DeckState> {
+/** Cards tagged `requiresConfig` are only dealt into the deck when that
+ *  config flag is on — otherwise drawing them would fizzle with no effect. */
+function eligibleCards(deck: Card[], config: GameConfig): Card[] {
+  return deck.filter((card) => !card.requiresConfig || config[card.requiresConfig]);
+}
+
+export function createInitialDecks(rng: Rng, config: GameConfig): Record<CardDeckName, DeckState> {
   return {
-    travel: { drawPile: shuffle(travelDeck, rng), discardPile: [] },
-    customs: { drawPile: shuffle(customsDeck, rng), discardPile: [] },
+    travel: { drawPile: shuffle(eligibleCards(travelDeck, config), rng), discardPile: [] },
+    customs: { drawPile: shuffle(eligibleCards(customsDeck, config), rng), discardPile: [] },
   };
 }
 

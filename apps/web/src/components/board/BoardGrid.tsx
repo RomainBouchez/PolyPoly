@@ -5,7 +5,7 @@ import type { ReactNode } from 'react';
 import { BoardTile } from './BoardTile.js';
 import { EventToast } from './EventToast.js';
 import { PropertyCard } from './PropertyCard.js';
-import { computeBoardLayout } from './tileLayout.js';
+import { computeBoardLayout, weightedGridTemplateColumns, weightedGridTemplateRows } from './tileLayout.js';
 
 interface BoardGridProps {
   state: GameState;
@@ -19,18 +19,36 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   // The board's shape never changes mid-game, so keying on tile count is enough.
   const layout = useMemo(() => computeBoardLayout(state.board), [state.board.tiles.length]);
+  const gridTemplateColumns = weightedGridTemplateColumns(layout.gridSize);
+  const gridTemplateRows = weightedGridTemplateRows(layout.gridSize);
 
   return (
     <div
-      className="mx-auto grid aspect-square gap-[3px] rounded-xl bg-black p-[3px]"
+      className="relative mx-auto grid aspect-square gap-[3px] rounded-xl bg-black p-[3px]"
       style={{
         // Sized to whichever is tighter — available height or available width —
         // so the whole board always fits without ever needing to scroll.
-        width: 'min(100%, calc(100dvh - 2rem))',
-        gridTemplateColumns: `repeat(${layout.gridSize}, minmax(0, 1fr))`,
-        gridTemplateRows: `repeat(${layout.gridSize}, minmax(0, 1fr))`,
+        width: 'min(100%, calc(100dvh - 1rem))',
+        // Every track is the same size — all tiles (ring cells) end up
+        // identical squares, and the center panel just spans whatever's
+        // left in the middle (gridSize-2 tracks), growing/shrinking with
+        // the screen instead of the tiles resizing.
+        gridTemplateColumns,
+        gridTemplateRows,
       }}
     >
+      {/* Rendered before the tiles so it paints *underneath* them. */}
+      <div
+        style={{
+          gridRow: `2 / span ${layout.gridSize - 2}`,
+          gridColumn: `2 / span ${layout.gridSize - 2}`,
+          background: 'radial-gradient(ellipse at center, #131b2c 0%, #0b1019 100%)',
+        }}
+        className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[10px] border border-white/[0.08] p-4"
+      >
+        {children}
+      </div>
+
       {state.board.tiles.map((tile) => (
         <BoardTile
           key={tile.index}
@@ -41,15 +59,19 @@ export function BoardGrid({ state, events, myPlayerId, onAction, children }: Boa
           onSelect={setSelectedTile}
         />
       ))}
+
+      {/* A dedicated layer over the tiles (not the center panel below, which
+          intentionally paints underneath them) so the toast is always
+          visible — clipped to the exact same inner-square grid cell as the
+          center panel, so it can never spill out onto/over the tile ring
+          regardless of board size. */}
       <div
         style={{
           gridRow: `2 / span ${layout.gridSize - 2}`,
           gridColumn: `2 / span ${layout.gridSize - 2}`,
-          background: 'radial-gradient(ellipse at center, #131b2c 0%, #0b1019 100%)',
         }}
-        className="relative flex flex-col items-center justify-center gap-4 overflow-hidden rounded-[10px] border border-white/[0.08] p-4"
+        className="pointer-events-none relative z-40 overflow-hidden rounded-[10px]"
       >
-        {children}
         <EventToast events={events} state={state} layout={layout} />
       </div>
 
