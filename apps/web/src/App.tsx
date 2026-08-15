@@ -1,5 +1,6 @@
 import { AdminPage } from './components/AdminPage.js';
 import { BoardDisplay } from './components/BoardDisplay.js';
+import { ConnectionStrip } from './components/ConnectionStrip.js';
 import { Controller } from './components/Controller.js';
 import { JoinScreen } from './components/JoinScreen.js';
 import { Lobby } from './components/Lobby.js';
@@ -46,15 +47,9 @@ export default function App() {
 
   return (
     <>
-      {/* The socket reconnects and rebinds the seat on its own, so this is a
-          status line rather than a wall — the board stays usable and the strip
-          disappears by itself. Without it a dropped connection just looked
-          like the game had frozen. */}
-      {!connected && (
-        <div className="fixed inset-x-0 top-0 z-40 bg-amber-500/90 px-3 py-1 text-center text-[11px] font-medium text-slate-950">
-          Reconnecting…
-        </div>
-      )}
+      {/* A status line rather than a wall: the socket rebinds the seat on its
+          own, so the board stays usable and the strip clears itself. */}
+      <ConnectionStrip connected={connected} />
       <Controller state={gameState} events={events} myPlayerId={myPlayerId} onAction={sendAction} />
     </>
   );
