@@ -35,7 +35,10 @@ COPY --from=build /app/apps/web/dist ./apps/web/dist
 VOLUME ["/data"]
 EXPOSE 4000
 
+# 127.0.0.1, not localhost: localhost resolves to ::1 first here, and the
+# server binds 0.0.0.0 (IPv4 only), so the probe would connection-refuse
+# and the container would sit permanently unhealthy while serving fine.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD wget --spider -q http://localhost:${PORT}/health || exit 1
+  CMD wget --spider -q http://127.0.0.1:${PORT}/health || exit 1
 
 CMD ["npm", "run", "start", "--workspace=apps/server"]
