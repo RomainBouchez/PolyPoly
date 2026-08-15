@@ -60,7 +60,14 @@ export class Room {
 
   /** Joins a new player, or — if playerId/sessionToken match a known seat —
    *  reconnects to it. Reconnecting is allowed at any room phase; joining
-   *  fresh is only allowed in the lobby, before the seat count is locked in. */
+   *  fresh is only allowed in the lobby, before the seat count is locked in.
+   *
+   *  A mid-game exception: if someone joins with just a `name` (no token —
+   *  e.g. they lost their stored session, or they're on a new device) and
+   *  that name matches a seated player who is currently disconnected, they
+   *  reclaim that seat instead of being turned away. This is a deliberately
+   *  low-trust mechanism — knowing a disconnected player's name is enough to
+   *  take their seat — acceptable for a LAN party game but worth knowing. */
   join(params: { name?: string; playerId?: PlayerId; sessionToken?: string }): { playerId: PlayerId; sessionToken: string } | { error: string } {
     if (params.playerId && params.sessionToken) {
       const existing = this.players.get(params.playerId);
@@ -71,7 +78,11 @@ export class Room {
       return { error: 'Session not recognized — join as a new player instead' };
     }
 
-    if (this.phase !== 'lobby') return { error: 'Game already started — cannot join as a new player' };
+    if (this.phase !== 'lobby') {
+      const reclaimed = this.reclaimDisconnectedSeat(params.name);
+      if (reclaimed) return reclaimed;
+      return { error: 'Game already started — cannot join as a new player' };
+    }
     if (this.players.size >= this.config.maxPlayers) return { error: 'Room is full' };
 
     const playerId = randomUUID();
@@ -80,7 +91,6 @@ export class Room {
       identity: {
         id: playerId,
         name: params.name?.trim() || `Player ${this.players.size + 1}`,
-        token: sessionToken,
         color: this.nextColor(),
         isHost: this.players.size === 0,
         connected: true,
@@ -90,6 +100,25 @@ export class Room {
     };
     this.players.set(playerId, seated);
     return { playerId, sessionToken };
+  }
+
+  /** Finds a currently-disconnected seat whose name matches (trimmed,
+   *  case-insensitive — it's re-typed by hand on a phone), rebinds it with a
+   *  fresh session token, and marks it connected again. If more than one
+   *  disconnected seat shares the name, the earliest-seated one wins (stable
+   *  Map iteration order = join order) — arbitrary but deterministic. */
+  private reclaimDisconnectedSeat(name: string | undefined): { playerId: PlayerId; sessionToken: string } | null {
+    const normalized = name?.trim().toLowerCase();
+    if (!normalized) return null;
+    for (const seated of this.players.values()) {
+      if (seated.identity.connected) continue;
+      if (seated.identity.name.trim().toLowerCase() !== normalized) continue;
+      const sessionToken = randomUUID();
+      seated.sessionToken = sessionToken;
+      seated.identity.connected = true;
+      return { playerId: seated.identity.id, sessionToken };
+    }
+    return null;
   }
 
   bindSocket(playerId: PlayerId, socketId: string): void {

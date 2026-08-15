@@ -23,6 +23,23 @@ export default function App() {
     return <JoinScreen connected={connected} error={error} onJoin={joinAsNew} />;
   }
 
+  // `connected` only reflects this socket's own transport state. If the
+  // socket silently auto-reconnects, `connected` flips back to true even
+  // though the server never re-bound this seat (that only happens via a
+  // fresh 'join', which a bare reconnect does not send) — so also check the
+  // server's own belief about this seat, carried on every room:update.
+  const seatConnected = room.players.find((p) => p.id === myPlayerId)?.connected ?? false;
+  if (!connected || !seatConnected) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-center text-slate-100">
+        <div>
+          <p className="text-lg font-medium">Disconnected</p>
+          <p className="mt-1 text-sm text-slate-400">Please refresh the page to reconnect.</p>
+        </div>
+      </div>
+    );
+  }
+
   if (room.phase === 'lobby') {
     return (
       <Lobby
