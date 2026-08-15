@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, type PanInfo } from 'motion/react';
 import { Check, Pencil, X } from 'lucide-react';
 import type { GameAction, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
+import { tileIcon } from '../board/BoardTile.js';
 import { GROUP_FLAG_SVG } from '../board/tileLayout.js';
 
 interface IncomingTradeModalProps {
@@ -24,7 +25,10 @@ function tileName(state: GameState, tileIndex: number): string {
 
 function PropertyChip({ state, tileIndex }: { state: GameState; tileIndex: number }) {
   const tile = state.board.tiles[tileIndex];
+  // Properties carry a country flag; airports, utilities and hospitals have
+  // none, so they fall back to the same emoji the board gives them.
   const flagSvg = tile?.kind === 'property' ? GROUP_FLAG_SVG[tile.group] : undefined;
+  const icon = !flagSvg && tile ? tileIcon(tile) : undefined;
   return (
     <span className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2 py-1 text-[11px] ring-1 ring-inset ring-white/10">
       {flagSvg && (
@@ -33,6 +37,7 @@ function PropertyChip({ state, tileIndex }: { state: GameState; tileIndex: numbe
           dangerouslySetInnerHTML={{ __html: flagSvg }}
         />
       )}
+      {icon && <span className="w-4 shrink-0 text-center leading-none">{icon}</span>}
       <span className="truncate">{tileName(state, tileIndex)}</span>
     </span>
   );

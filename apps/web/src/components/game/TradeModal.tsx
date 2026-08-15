@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { motion, useDragControls, type PanInfo } from 'motion/react';
 import { ArrowLeftRight, ChevronLeft, Send, X } from 'lucide-react';
 import type { GameAction, GameState, Player, PlayerId, TradeOffer } from '@polypoly/engine';
+import { tileIcon } from '../board/BoardTile.js';
 import { GROUP_FLAG_SVG } from '../board/tileLayout.js';
 
 interface TradeModalProps {
@@ -266,8 +267,10 @@ function TradeColumn({
             const tile = state.board.tiles[i];
             // The board identifies a property by its country flag; a bare
             // colour dot here meant you could not tell at a glance what was
-            // actually on the table.
+            // actually on the table. Airports, utilities and hospitals have no
+            // flag, so they fall back to the same emoji the board gives them.
             const flagSvg = tile?.kind === 'property' ? GROUP_FLAG_SVG[tile.group] : undefined;
+            const icon = !flagSvg && tile ? tileIcon(tile) : undefined;
             const price = tile && 'price' in tile ? tile.price : undefined;
             const isSelected = selected.includes(i);
             return (
@@ -288,6 +291,7 @@ function TradeColumn({
                       dangerouslySetInnerHTML={{ __html: flagSvg }}
                     />
                   )}
+                  {icon && <span className="w-4 shrink-0 text-center leading-none">{icon}</span>}
                   <span className="truncate">{tileName(state, i)}</span>
                 </span>
                 <span className="shrink-0 tabular-nums text-slate-400">${price}</span>
