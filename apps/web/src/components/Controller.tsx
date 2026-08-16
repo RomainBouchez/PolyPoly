@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
-import { Gamepad2, Map } from 'lucide-react';
+import { BookOpen, Gamepad2, Map } from 'lucide-react';
 import { netWorth } from '@polypoly/engine';
 import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
 import { BoardGrid } from './board/BoardGrid.js';
@@ -12,6 +12,7 @@ import { AlliancePanel } from './game/AlliancePanel.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { CashValue } from './game/CashValue.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
+import { GameRulesModal } from './game/GameRulesModal.js';
 import { IncomingTradeModal } from './game/IncomingTradeModal.js';
 import { PendingActionStrip } from './game/PendingActionBanner.js';
 import { SquatModal } from './game/SquatModal.js';
@@ -162,6 +163,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
 
 function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const me = state.players[myPlayerId]!;
   const currentPlayer = state.players[state.turnOrder[state.currentPlayerIndex]!];
   const isMyTurn = currentPlayer?.id === myPlayerId;
@@ -183,6 +185,13 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
               {me.name.slice(0, 1).toUpperCase()}
             </span>
             <span className="font-semibold tracking-tight">{me.name}</span>
+            <button
+              onClick={() => setRulesOpen(true)}
+              aria-label="Game rules"
+              className="rounded-full p-1 text-slate-500 transition-colors active:bg-white/10 active:text-slate-200"
+            >
+              <BookOpen size={16} />
+            </button>
           </div>
           <div className="text-right">
             <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />
@@ -282,6 +291,10 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
             onClose={() => setSelectedTile(null)}
           />
         )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {rulesOpen && <GameRulesModal state={state} onClose={() => setRulesOpen(false)} />}
       </AnimatePresence>
     </div>
   );

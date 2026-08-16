@@ -292,6 +292,10 @@ function migrateGameState(state: GameState | null): GameState | null {
   if (!state) return state;
   return {
     ...state,
+    // The engine reads the config off the game state, not off the room, so a
+    // flag added after a game started would sit undefined here and read as
+    // off — silently disabling a rule for the rest of that game.
+    config: { ...DEFAULT_GAME_CONFIG, ...state.config },
     heldSquatCards: state.heldSquatCards ?? [],
     players: Object.fromEntries(
       Object.entries(state.players).map(([id, player]) => [id, { ...player, squattedPlayerIds: player.squattedPlayerIds ?? [] }]),
