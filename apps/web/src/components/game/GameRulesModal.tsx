@@ -130,7 +130,13 @@ export function GameRulesModal({ state, onClose }: { state: GameState; onClose: 
                           className={`rounded-xl bg-white/5 p-2.5 ring-1 ring-inset ring-white/10 ${off ? 'opacity-45' : ''}`}
                         >
                           <p className="flex items-center gap-1.5 text-sm font-semibold text-slate-100">
-                            <Highlighted text={entry.title} query={query} />
+                            {/* Wrapped: Highlighted returns three fragments, and
+                                as bare children of a flex row each becomes its
+                                own item, so the gap would open up inside the
+                                word around the match. */}
+                            <span>
+                              <Highlighted text={entry.title} query={query} />
+                            </span>
                             {off && (
                               <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[9px] font-medium uppercase tracking-wide text-slate-400">
                                 off
