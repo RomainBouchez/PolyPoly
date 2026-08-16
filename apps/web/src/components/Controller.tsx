@@ -39,6 +39,7 @@ const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
 export function Controller({ state, events, myPlayerId, onAction }: ControllerProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   // Fired from the arrival *event*, not from the presence of a pending trade:
   // keying off state meant every remount — a reconnect, a refresh — re-popped
   // an offer that had simply not been answered yet. `events` only ever holds
@@ -123,6 +124,26 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
           })}
         </nav>
 
+        {/* Sits clear of the tab bar, and above the board without covering
+            the tiles a player is reading. Hidden while any sheet is open so it
+            does not float over its own modal. */}
+        {!rulesOpen && !negotiating && !incomingTrade && (
+          <motion.button
+            onClick={() => setRulesOpen(true)}
+            aria-label="Game rules"
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+            className="fixed right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-slate-800/90 text-slate-200 shadow-lg shadow-black/40 ring-1 ring-white/15 backdrop-blur active:bg-slate-700"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 4.75rem)' }}
+          >
+            <BookOpen size={20} />
+          </motion.button>
+        )}
+
+        <AnimatePresence>
+          {rulesOpen && <GameRulesModal state={state} onClose={() => setRulesOpen(false)} />}
+        </AnimatePresence>
+
         <AnimatePresence>
           {state.heldSquatCards.some((h) => h.playerId === myPlayerId && h.targetTileIndex === undefined) && (
             <SquatModal key="squat" state={state} myPlayerId={myPlayerId} onAction={onAction} />
@@ -163,7 +184,6 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
 
 function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
-  const [rulesOpen, setRulesOpen] = useState(false);
   const me = state.players[myPlayerId]!;
   const currentPlayer = state.players[state.turnOrder[state.currentPlayerIndex]!];
   const isMyTurn = currentPlayer?.id === myPlayerId;
@@ -185,13 +205,6 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
               {me.name.slice(0, 1).toUpperCase()}
             </span>
             <span className="font-semibold tracking-tight">{me.name}</span>
-            <button
-              onClick={() => setRulesOpen(true)}
-              aria-label="Game rules"
-              className="rounded-full p-1 text-slate-500 transition-colors active:bg-white/10 active:text-slate-200"
-            >
-              <BookOpen size={16} />
-            </button>
           </div>
           <div className="text-right">
             <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />
@@ -293,9 +306,6 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
         )}
       </AnimatePresence>
 
-      <AnimatePresence>
-        {rulesOpen && <GameRulesModal state={state} onClose={() => setRulesOpen(false)} />}
-      </AnimatePresence>
     </div>
   );
 }
