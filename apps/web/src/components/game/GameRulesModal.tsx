@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { AnimatePresence, motion, type PanInfo } from 'motion/react';
 import { Search, X } from 'lucide-react';
 import type { GameState } from '@polypoly/engine';
+import { useKeyboardInset } from '../../hooks/useKeyboardInset.js';
 import { buildRuleSections, matchesQuery } from './rulesContent.js';
 
 const DISMISS_OFFSET = 120;
@@ -24,6 +25,7 @@ function Highlighted({ text, query }: { text: string; query: string }) {
 
 export function GameRulesModal({ state, onClose }: { state: GameState; onClose: () => void }) {
   const [query, setQuery] = useState('');
+  const keyboardInset = useKeyboardInset();
   const sections = useMemo(() => buildRuleSections(state), [state]);
 
   // Optional rules that are off still appear, marked — a player asking "how do
@@ -49,6 +51,11 @@ export function GameRulesModal({ state, onClose }: { state: GameState; onClose: 
       exit={{ opacity: 0 }}
       transition={{ duration: 0.2, ease: 'easeOut' }}
       onClick={onClose}
+      // Padding rather than a transform: the sheet is bottom-anchored, so this
+      // lifts it clear of the keyboard while its own max-height shrinks to
+      // match, keeping the whole sheet reachable instead of pushing its top
+      // off-screen.
+      style={{ paddingBottom: keyboardInset }}
     >
       <motion.div
         onClick={(e) => e.stopPropagation()}
@@ -60,6 +67,7 @@ export function GameRulesModal({ state, onClose }: { state: GameState; onClose: 
         animate={{ y: 0 }}
         exit={{ y: '100%' }}
         transition={{ type: 'spring', bounce: 0.15, visualDuration: 0.4 }}
+        style={{ maxHeight: keyboardInset > 0 ? `calc(88dvh - ${keyboardInset}px)` : undefined }}
         className="flex max-h-[88dvh] w-full max-w-lg flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-slate-900 text-slate-100 shadow-2xl sm:max-h-[85dvh] sm:rounded-3xl"
       >
         <div className="flex cursor-grab justify-center pt-2 active:cursor-grabbing sm:hidden">
