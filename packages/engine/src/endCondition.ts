@@ -26,9 +26,9 @@ export function checkLastStanding(draft: GameState, events: GameEvent[]): boolea
   return false;
 }
 
-export function checkTurnLimit(draft: GameState, events: GameEvent[]): boolean {
+export function checkRoundLimit(draft: GameState, events: GameEvent[]): boolean {
   const condition = draft.config.endCondition;
-  if (condition.type === 'turn-limit' && draft.turnNumber > condition.turns) {
+  if (condition.type === 'round-limit' && draft.roundNumber > condition.rounds) {
     endGame(draft, richestPlayer(draft), events);
     return true;
   }

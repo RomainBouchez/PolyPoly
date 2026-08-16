@@ -46,7 +46,7 @@ export interface GameConfig {
 
 export type EndCondition =
   | { type: 'last-standing' }
-  | { type: 'turn-limit'; turns: number }
+  | { type: 'round-limit'; rounds: number }
   | { type: 'time-limit'; minutes: number };
 
 export const DEFAULT_GAME_CONFIG: GameConfig = {

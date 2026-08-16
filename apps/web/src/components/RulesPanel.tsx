@@ -7,107 +7,105 @@ interface RulesPanelProps {
   onChange: (patch: Partial<GameConfig>) => void;
 }
 
+/** Grouped rather than one flat list: at sixteen switches a flat column gives
+ *  no sense of which ones matter for a normal game and which change it into a
+ *  different one. */
+const GROUPS: { title: string; blurb: string; toggles: { key: keyof GameConfig; label: string; description: string }[] }[] = [
+  {
+    title: 'Core rules',
+    blurb: 'The familiar board game. Most tables leave these on.',
+    toggles: [
+      {
+        key: 'doubleRentOnFullSet',
+        label: 'Double rent on a full set',
+        description: 'Owning every property of one country doubles their rent until you build',
+      },
+      { key: 'auction', label: 'Auctions', description: 'Declining a purchase puts the tile up for bidding instead of leaving it' },
+      { key: 'mortgage', label: 'Mortgages', description: 'Raise cash against a property; it earns nothing until you buy it back' },
+      { key: 'evenBuild', label: 'Even building', description: 'Houses must go up and come down evenly across a set' },
+    ],
+  },
+  {
+    title: 'Scarcity',
+    blurb: 'Make money and materials genuinely run out.',
+    toggles: [
+      {
+        key: 'limitedHouseSupply',
+        label: 'Limited house supply',
+        description: 'The bank holds only 32 houses and 12 hotels — building can stall, and blocking a leader becomes a tactic',
+      },
+      { key: 'vacationCash', label: 'Vacation pot', description: 'Taxes and fees pile up on the Vacation tile for whoever lands on it' },
+      { key: 'noRentInPrison', label: 'No rent from jail', description: 'A jailed player collects nothing on anything they own' },
+      {
+        key: 'oneTradeAtATime',
+        label: 'One trade at a time',
+        description: 'A player can only be in one pending trade, so trading cannot crowd out the game',
+      },
+    ],
+  },
+  {
+    title: 'Extra modes',
+    blurb: 'Each of these changes how the game plays. Off by default.',
+    toggles: [
+      {
+        key: 'healthMode',
+        label: 'Health',
+        description: 'Tiles cost or restore health, 1-1 makes you ill and pays hospital owners, jail wears you down, and Go pays half while sick',
+      },
+      {
+        key: 'squatCards',
+        label: 'Squat cards',
+        description: 'A card can grant one free stay on a matching opponent property — once per opponent',
+      },
+      {
+        key: 'allianceMode',
+        label: 'Alliances',
+        description: 'A card pairs two players for three turns: rent between them is halved, and with health on they can pass health',
+      },
+      {
+        key: 'rainyDay',
+        label: 'Weather',
+        description: 'Rent doubles for a turn or two early on; the Sunny tile cuts the rain short and halves rent instead',
+      },
+      {
+        key: 'hostageMode',
+        label: 'Hostages',
+        description: 'From jail you can freeze one opponent property, earning its owner nothing until you are out',
+      },
+    ],
+  },
+];
+
 export function RulesPanel({ config, editable, onChange }: RulesPanelProps) {
   const set = (patch: Partial<GameConfig>) => editable && onChange(patch);
 
   return (
     <div className="space-y-6">
-      <section>
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-400">Toggles</h3>
-        <div className="divide-y divide-slate-800">
-          <Toggle
-            label="Private room"
-            description="Private rooms can be accessed using the room URL only"
-            checked={config.privateRoom}
-            disabled={!editable}
-            onChange={(v) => set({ privateRoom: v })}
-          />
-          <Toggle
-            label="Allow bots to join"
-            description="Not available yet — bots are coming in a future update"
-            checked={false}
-            disabled
-            onChange={() => {}}
-          />
-          <Toggle
-            label="x2 rent on full-set properties"
-            description="If a player owns a full property set, the base rent payment will be doubled"
-            checked={config.doubleRentOnFullSet}
-            disabled={!editable}
-            onChange={(v) => set({ doubleRentOnFullSet: v })}
-          />
-          <Toggle
-            label="Vacation cash"
-            description="Taxes and bank payments accumulate on Vacation; landing there collects the pot"
-            checked={config.vacationCash}
-            disabled={!editable}
-            onChange={(v) => set({ vacationCash: v })}
-          />
-          <Toggle
-            label="Auction"
-            description="If someone skips buying a property, it goes to auction among the other players"
-            checked={config.auction}
-            disabled={!editable}
-            onChange={(v) => set({ auction: v })}
-          />
-          <Toggle
-            label="Don't collect rent while in prison"
-            description="Rent isn't collected when landing on properties whose owners are in prison"
-            checked={config.noRentInPrison}
-            disabled={!editable}
-            onChange={(v) => set({ noRentInPrison: v })}
-          />
-          <Toggle
-            label="Mortgage"
-            description="Mortgage properties to earn 50% of their cost, but they won't earn rent"
-            checked={config.mortgage}
-            disabled={!editable}
-            onChange={(v) => set({ mortgage: v })}
-          />
-          <Toggle
-            label="Even build"
-            description="Houses and hotels must be built up and sold off evenly within a set"
-            checked={config.evenBuild}
-            disabled={!editable}
-            onChange={(v) => set({ evenBuild: v })}
-          />
-          <Toggle
-            label="Limited house supply"
-            description="The bank only has 32 houses and 12 hotels — building can stall on scarcity"
-            checked={config.limitedHouseSupply}
-            disabled={!editable}
-            onChange={(v) => set({ limitedHouseSupply: v })}
-          />
-          <Toggle
-            label="Health mode"
-            description="Some tiles cost or restore health, rolling 1-1 makes you sick and pays hospital owners, jail wears you down, and Go pays half while you're sick"
-            checked={config.healthMode}
-            disabled={!editable}
-            onChange={(v) => set({ healthMode: v })}
-          />
-          <Toggle
-            label="One trade at a time"
-            description="A player can only be in one pending trade, as proposer or recipient — keeps trading from crowding out the rest of the game"
-            checked={config.oneTradeAtATime}
-            disabled={!editable}
-            onChange={(v) => set({ oneTradeAtATime: v })}
-          />
-          <Toggle
-            label="Squat cards"
-            description="Chance/Community cards can grant a free stay on a matching opponent property — once per opponent, blocked while sick"
-            checked={config.squatCards}
-            disabled={!editable}
-            onChange={(v) => set({ squatCards: v })}
-          />
-        </div>
-      </section>
+      {GROUPS.map((group) => (
+        <section key={group.title}>
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-400">{group.title}</h3>
+          <p className="mb-1 text-xs text-slate-500">{group.blurb}</p>
+          <div className="divide-y divide-slate-800">
+            {group.toggles.map((t) => (
+              <Toggle
+                key={t.key}
+                label={t.label}
+                description={t.description}
+                checked={config[t.key] as boolean}
+                disabled={!editable}
+                onChange={(v) => set({ [t.key]: v } as Partial<GameConfig>)}
+              />
+            ))}
+          </div>
+        </section>
+      ))}
 
       <section>
-        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-400">Settings</h3>
-        <div className="space-y-4">
+        <h3 className="mb-1 text-sm font-semibold uppercase tracking-wide text-slate-400">Table</h3>
+        <div className="space-y-3">
           <NumberField
             label="Maximum players"
-            description="How many players can join the game"
+            description="How many seats this game has"
             value={config.maxPlayers}
             min={2}
             max={8}
@@ -116,10 +114,10 @@ export function RulesPanel({ config, editable, onChange }: RulesPanelProps) {
           />
           <NumberField
             label="Starting cash"
-            description="Adjust how much money players start the game with"
+            description="What everyone begins with"
             value={config.startingCash}
-            min={200}
-            max={10000}
+            min={500}
+            max={5000}
             step={100}
             editable={editable}
             onChange={(v) => set({ startingCash: v })}
@@ -188,28 +186,30 @@ function EndConditionField({ config, editable, onChange }: RulesPanelProps) {
             const next: EndCondition =
               type === 'last-standing'
                 ? { type }
-                : type === 'turn-limit'
-                  ? { type, turns: 40 }
+                : type === 'round-limit'
+                  ? { type, rounds: 20 }
                   : { type, minutes: 90 };
             onChange({ endCondition: next });
           }}
           className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-slate-100 disabled:cursor-not-allowed"
         >
           <option value="last-standing">Last player standing</option>
-          <option value="turn-limit">Turn limit</option>
+          <option value="round-limit">Round limit</option>
           <option value="time-limit">Time limit</option>
         </select>
-        {condition.type === 'turn-limit' && (
+        {condition.type === 'round-limit' && (
           <input
             type="number"
-            value={condition.turns}
-            min={5}
+            value={condition.rounds}
+            min={3}
             disabled={!editable}
-            onChange={(e) => onChange({ endCondition: { type: 'turn-limit', turns: Number(e.target.value) } })}
+            onChange={(e) => onChange({ endCondition: { type: 'round-limit', rounds: Number(e.target.value) } })}
             className="w-20 rounded-md border border-slate-700 bg-slate-800 px-2 py-1 text-slate-100 disabled:cursor-not-allowed"
           />
         )}
-        {condition.type === 'turn-limit' && <span className="text-sm text-slate-400">turns, richest wins</span>}
+        {condition.type === 'round-limit' && (
+          <span className="text-sm text-slate-400">rounds — one round is everyone playing once — richest wins</span>
+        )}
         {condition.type === 'time-limit' && (
           <input
             type="number"

@@ -81,9 +81,15 @@ export function Lobby({ room, config, myPlayerId, error, onUpdateConfig, onStart
           {error && <p className="text-center text-sm text-red-400">{error}</p>}
         </div>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-          <RulesPanel config={config} editable={isHost} onChange={onUpdateConfig} />
-        </div>
+        {/* Host only. Everyone else could see the full toggle list but change
+            nothing, which mostly invited questions about switches they had no
+            say over — the rules modal is where a player looks up what is
+            actually in play. */}
+        {isHost && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
+            <RulesPanel config={config} editable onChange={onUpdateConfig} />
+          </div>
+        )}
       </div>
     </div>
   );

@@ -67,8 +67,8 @@ export function buildRuleSections(state: GameState): RuleSection[] {
           body:
             cfg.endCondition.type === 'last-standing'
               ? 'Be the last player who has not gone bankrupt. Everyone else is knocked out along the way.'
-              : cfg.endCondition.type === 'turn-limit'
-                ? `The game ends after ${cfg.endCondition.turns} turns. Whoever is worth the most then wins.`
+              : cfg.endCondition.type === 'round-limit'
+                ? `The game ends after ${cfg.endCondition.rounds} rounds — a round is everyone playing once. Whoever is worth the most then wins.`
                 : `The game ends after ${cfg.endCondition.minutes} minutes. Whoever is worth the most then wins.`,
         },
         {

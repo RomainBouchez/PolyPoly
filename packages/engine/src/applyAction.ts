@@ -2,7 +2,7 @@ import { auctionEligiblePlayerIds, recordBid, recordPass, startAuction, type Auc
 import { boardSize, getOwnableTile, getTile, hospitalTiles, jailTileIndex } from './board.js';
 import { bankrupt, chargePlayer, settleDebt } from './debt.js';
 import { drawCard, findCardById } from './deck.js';
-import { checkLastStanding, checkTurnLimit, checkTimeLimit } from './endCondition.js';
+import { checkLastStanding, checkRoundLimit, checkTimeLimit } from './endCondition.js';
 import { IllegalActionError } from './errors.js';
 import { buildHouse, sellHouse } from './houses.js';
 import { mortgageProperty, unmortgageProperty } from './mortgage.js';
@@ -737,7 +737,7 @@ function finishTurn(draft: GameState, events: GameEvent[]): void {
   events.push({ type: 'turn-ended', playerId: currentPlayerId, nextPlayerId: nextId });
   tickTurnEffects(draft, events);
   if (checkLastStanding(draft, events)) return;
-  if (checkTurnLimit(draft, events)) return;
+  if (checkRoundLimit(draft, events)) return;
   startTurnPhase(draft, nextId);
 }
 
@@ -790,6 +790,8 @@ function advanceToNextActivePlayer(draft: GameState): PlayerId {
     const candidate = draft.turnOrder[idx]!;
     if (draft.players[candidate]?.status === 'active') break;
   }
+  // Wrapping back to an earlier seat means the table came full circle.
+  if (idx <= draft.currentPlayerIndex) draft.roundNumber += 1;
   draft.currentPlayerIndex = idx;
   draft.turnNumber += 1;
   return draft.turnOrder[idx]!;

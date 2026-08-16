@@ -53,6 +53,7 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
     doublesCount: 0,
     vacationPot: 0,
     turnNumber: 1,
+    roundNumber: 1,
     bank: { housesRemaining: 32, hotelsRemaining: 12 },
     decks: createInitialDecks(rng, config),
     heldJailCards: [],

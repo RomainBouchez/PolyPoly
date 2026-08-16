@@ -128,7 +128,12 @@ export interface GameState {
   phase: Phase;
   doublesCount: number;
   vacationPot: number;
+  /** Individual player turns taken. Drives rainy day's schedule. */
   turnNumber: number;
+  /** Complete trips around the table. A "20 turn" limit meant 20 individual
+   *  turns — four rounds at five players — which is not what anyone reads it
+   *  as, so the end condition counts these instead. */
+  roundNumber: number;
   bank: BankState;
   decks: Record<CardDeckName, DeckState>;
   heldJailCards: HeldJailCard[];
