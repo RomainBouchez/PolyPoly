@@ -97,6 +97,12 @@ function describeEvent(event: GameEvent, state: GameState): ReactNode {
           <P id={event.playerId} /> paid ${event.amount} tax
         </>
       );
+    case 'wealth-tax-paid':
+      return (
+        <>
+          ⚖️ <P id={event.playerId} /> paid ${event.amount} in Departure Tax to <P id={event.toId} />
+        </>
+      );
     case 'purchased':
       return (
         <>

@@ -2,7 +2,7 @@ import { auctionEligiblePlayerIds, recordBid, recordPass, startAuction, type Auc
 import { boardSize, getOwnableTile, getTile, hospitalTiles, jailTileIndex } from './board.js';
 import { bankrupt, chargePlayer, settleDebt } from './debt.js';
 import { drawCard, findCardById } from './deck.js';
-import { checkLastStanding, checkRoundLimit, checkTimeLimit } from './endCondition.js';
+import { checkLastStanding, checkRoundLimit, checkTimeLimit, poorestPlayer } from './endCondition.js';
 import { IllegalActionError } from './errors.js';
 import { buildHouse, sellHouse } from './houses.js';
 import { mortgageProperty, unmortgageProperty } from './mortgage.js';
@@ -28,6 +28,7 @@ import {
   SUNNY_DAY_DURATION_MAX,
   computeRent,
   isAllied,
+  wealthTaxAmount,
 } from './rules.js';
 import { executeTrade, findTrade, validateTrade } from './trade.js';
 import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from './types.js';
@@ -415,6 +416,24 @@ function resolveTile(
       if (!paid) return;
       if (draft.config.vacationCash) draft.vacationPot += amount;
       events.push({ type: 'tax-paid', playerId, amount, toVacationPot: draft.config.vacationCash });
+      break;
+    }
+
+    case 'wealth-tax': {
+      // The recipient is picked over ALL active players, payer included, so
+      // that "payer is already poorest" falls out for free: they'd tie
+      // themselves for worst and poorestPlayer's `<` tie-break keeps the
+      // first candidate, which is themselves — no separate special case
+      // needed. Same reasoning covers "only one player left".
+      const recipientId = poorestPlayer(draft);
+      if (recipientId !== playerId) {
+        const amount = wealthTaxAmount(draft, playerId);
+        if (amount > 0) {
+          const paid = chargePlayer(draft, playerId, amount, recipientId, events);
+          if (!paid) return;
+          events.push({ type: 'wealth-tax-paid', playerId, toId: recipientId, amount });
+        }
+      }
       break;
     }
 

@@ -190,6 +190,10 @@ export type GameEvent =
   | { type: 'collected-go'; playerId: PlayerId; amount: number }
   | { type: 'rent-paid'; from: PlayerId; to: PlayerId; amount: number; tileIndex: number }
   | { type: 'tax-paid'; playerId: PlayerId; amount: number; toVacationPot: boolean }
+  // Distinct from 'tax-paid': this money goes to a player, never the bank or
+  // the vacation pot, and it is skipped entirely (no event) when the payer
+  // is already the poorest, or nobody else is left to receive it.
+  | { type: 'wealth-tax-paid'; playerId: PlayerId; toId: PlayerId; amount: number }
   | { type: 'purchased'; playerId: PlayerId; tileIndex: number; price: number }
   | { type: 'declined-purchase'; playerId: PlayerId; tileIndex: number }
   | { type: 'sent-to-jail'; playerId: PlayerId; reason: 'tile' | 'three-doubles' | 'card' }

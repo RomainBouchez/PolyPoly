@@ -26,6 +26,7 @@ import {
   UNMORTGAGE_INTEREST,
   UTILITY_RENT_MULTIPLIER_BOTH,
   UTILITY_RENT_MULTIPLIER_ONE,
+  WEALTH_TAX_RATE,
   type GameState,
 } from '@polypoly/engine';
 import type { GameConfig } from '@polypoly/shared';
@@ -157,6 +158,10 @@ export function buildRuleSections(state: GameState): RuleSection[] {
       title: 'Money trouble',
       icon: '💸',
       entries: [
+        {
+          title: 'Departure tax',
+          body: `Land on Departure Tax and you pay ${Math.round(WEALTH_TAX_RATE * 100)}% of your net worth straight to whoever currently has the least — not the bank. Already the poorest yourself? Nothing happens.`,
+        },
         {
           title: 'Mortgaging',
           body: `Mortgage a property for half its price to raise cash. It earns no rent while mortgaged, and lifting it costs the mortgage value plus ${Math.round((UNMORTGAGE_INTEREST - 1) * 100)}% interest. Sell any houses first.`,

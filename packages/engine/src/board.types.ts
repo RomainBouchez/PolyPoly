@@ -57,6 +57,16 @@ export interface TaxTile {
   amount: number;
 }
 
+/** Unlike TaxTile, there's no printed amount here — the charge is a
+ *  percentage of the payer's own net worth (WEALTH_TAX_RATE in rules.ts),
+ *  and it goes straight to whichever active player is currently worth the
+ *  least (poorestPlayer in endCondition.ts), not to the bank. */
+export interface WealthTaxTile {
+  kind: 'wealth-tax';
+  index: number;
+  name: string;
+}
+
 export interface CardTile {
   kind: 'card';
   index: number;
@@ -92,6 +102,7 @@ export type Tile =
   | UtilityTile
   | HospitalTile
   | TaxTile
+  | WealthTaxTile
   | CardTile
   | CornerTile
   | EmergencyTile

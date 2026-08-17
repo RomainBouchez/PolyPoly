@@ -16,6 +16,7 @@ import {
   UNMORTGAGE_INTEREST,
   UTILITY_RENT_MULTIPLIER_BOTH,
   UTILITY_RENT_MULTIPLIER_ONE,
+  WEALTH_TAX_RATE,
   getLegalActions,
   groupTiles,
   isOwnable,
@@ -289,6 +290,14 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
           {tile.kind === 'tax' && (
             <div className="px-4 py-2 text-sm text-slate-300">
               <p>💸 Pay ${tile.amount} to the bank when you land here.</p>
+            </div>
+          )}
+
+          {tile.kind === 'wealth-tax' && (
+            <div className="px-4 py-2 text-sm text-slate-300">
+              <p>
+                ⚖️ Pay {Math.round(WEALTH_TAX_RATE * 100)}% of your net worth straight to whoever currently has the least — skipped if that's already you.
+              </p>
             </div>
           )}
 

@@ -53,7 +53,7 @@ const tiles: Tile[] = [
   property('portugal', 'Porto', '🍷', 60, FAST_FOOD),
   { kind: 'card', index: 0, deck: 'travel' },
   property('portugal', 'Lisbon', '🚋', 80),
-  { kind: 'tax', index: 0, name: 'Departure Tax', amount: 200 },
+  { kind: 'wealth-tax', index: 0, name: 'Departure Tax' },
   { kind: 'airport', index: 0, name: 'Lisbon Airport', price: 200, mortgageValue: 100 },
   { kind: 'hospital', index: 0, name: 'Central Hospital', price: 150, mortgageValue: 75 },
   { kind: 'emergency', index: 0, name: 'Emergency' },

@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from './applyAction.js';
 import { IllegalActionError } from './errors.js';
-import { DEFAULT_PLAYERS, freshState, P1, P2, scriptedRng } from './testUtils.js';
+import { wealthTaxAmount } from './rules.js';
+import { DEFAULT_PLAYERS, freshState, P1, P2, P3, scriptedRng } from './testUtils.js';
 
 describe('roll — movement', () => {
   it('moves the player by the dice sum and ends the turn on a non-double', () => {
@@ -109,10 +110,86 @@ describe('rent', () => {
 describe('tax', () => {
   it('deducts the tax amount from the player', () => {
     const state = freshState();
-    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 3])); // tile 4, Departure Tax 200
+    // tile 40, Luxury Tax 100 — tile 4 (Departure Tax) is now the wealth-tax
+    // redistribution rule, covered in its own describe block below.
+    state.players[P1]!.position = 37;
+    const { state: next, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2])); // 37 + 3 = 40
 
-    expect(next.players[P1]!.cash).toBe(1500 - 200);
+    expect(next.players[P1]!.cash).toBe(1500 - 100);
     expect(events.some((e) => e.type === 'tax-paid')).toBe(true);
+  });
+});
+
+// Tile 4, Departure Tax: pays a share of the payer's own net worth (rounded to
+// the nearest $10) straight to whoever is currently poorest, not the bank. The
+// rate lives in WEALTH_TAX_RATE; nothing here should hard-code it.
+describe('wealth-tax', () => {
+  // Every test below lands P1 on tile 4 with the same non-double [1,3] roll
+  // the old fixed-$200 test used — it's still the shortest way there from Go.
+
+  it('pays a share of the payer net worth to the poorest player', () => {
+    const s = freshState();
+    s.players[P1]!.cash = 2000; // payer is comfortably the richest
+    s.players[P2]!.cash = 200; // clearly the poorest
+    // P3 stays at the default 1500.
+    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+
+    // Derived from the rule, not pinned to a rate — the point under test is
+    // "a share of the payer's worth goes to the poorest", not one magic number.
+    const due = wealthTaxAmount(s, P1);
+    expect(due).toBeGreaterThan(0);
+    expect(next.players[P1]!.cash).toBe(2000 - due);
+    expect(next.players[P2]!.cash).toBe(200 + due);
+    expect(events.some((e) => e.type === 'wealth-tax-paid' && e.playerId === P1 && e.toId === P2 && e.amount === due)).toBe(true);
+  });
+
+  it('does nothing when the payer is already the poorest', () => {
+    const s = freshState();
+    s.players[P1]!.cash = 100; // P1 is uniquely poorest; P2/P3 stay at 1500
+    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+
+    expect(next.players[P1]!.cash).toBe(100); // untouched, not paid to themselves
+    expect(events.some((e) => e.type === 'wealth-tax-paid')).toBe(false);
+  });
+
+  it('breaks a tie for poorest deterministically, by turn order', () => {
+    const s = freshState();
+    s.players[P1]!.cash = 2000; // payer, 5% = 100
+    s.players[P2]!.cash = 100; // tied poorest, but earlier in turn order than P3
+    s.players[P3]!.cash = 100; // tied poorest
+    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+
+    expect(next.players[P2]!.cash).toBe(100 + wealthTaxAmount(s, P1));
+    expect(next.players[P3]!.cash).toBe(100); // untouched — P2 wins the tie
+    expect(events.some((e) => e.type === 'wealth-tax-paid' && e.toId === P2)).toBe(true);
+  });
+
+  it('routes an unaffordable charge through the normal debt-settlement path, not the bank', () => {
+    const s = freshState();
+    s.players[P1]!.cash = 10;
+    s.ownership[43] = { ownerId: P1, houses: 0, mortgaged: false }; // Paris, price 400 -> net worth 410, 5% = 20
+    s.players[P2]!.cash = 50; // poorest, so the intended creditor
+    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+
+    const owed = wealthTaxAmount(s, P1);
+    expect(owed).toBeGreaterThan(s.players[P1]!.cash); // the scenario is only meaningful if unaffordable
+    expect(next.players[P1]!.cash).toBe(10); // not partially deducted
+    expect(next.phase).toEqual({ type: 'awaiting-debt-settlement', playerId: P1, creditorId: P2, amount: owed });
+    expect(events.some((e) => e.type === 'debt-pending' && e.creditorId === P2 && e.amount === owed)).toBe(true);
+    expect(events.some((e) => e.type === 'wealth-tax-paid')).toBe(false); // not resolved yet
+  });
+
+  it('never picks a bankrupt player as the recipient', () => {
+    const s = freshState();
+    s.players[P1]!.cash = 2000; // payer
+    s.players[P2]!.status = 'bankrupt';
+    s.players[P2]!.cash = 0; // would look poorest if eligibility weren't checked
+    s.players[P3]!.cash = 300; // the actual poorest active player
+    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+
+    expect(next.players[P3]!.cash).toBe(300 + wealthTaxAmount(s, P1));
+    expect(next.players[P2]!.cash).toBe(0); // bankrupt player untouched
+    expect(events.some((e) => e.type === 'wealth-tax-paid' && e.toId === P3)).toBe(true);
   });
 });
 

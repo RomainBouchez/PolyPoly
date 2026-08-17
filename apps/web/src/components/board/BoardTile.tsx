@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'motion/react';
-import type { GameState, PropertyGroup, Tile } from '@polypoly/engine';
+import { WEALTH_TAX_RATE, type GameState, type PropertyGroup, type Tile } from '@polypoly/engine';
 import type { CSSProperties } from 'react';
 import HEALTH_BONUS_SVG from '../../assets/icons/health-bonus.svg?raw';
 import HEALTH_MALUS_SVG from '../../assets/icons/health-malus.svg?raw';
@@ -192,6 +192,20 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             ${price ?? 0}
           </span>
         )}
+
+        {/* The cost is a share of your own worth rather than a printed amount,
+            so the rate goes where a property shows its price — otherwise the
+            tile gives no clue what landing on it costs. */}
+        {tile.kind === 'wealth-tax' && (
+          <span className="shrink-0 font-semibold text-amber-300/80" style={{ fontSize: 'clamp(6px, 10cqmin, 10px)' }}>
+            {Math.round(WEALTH_TAX_RATE * 100)}%
+          </span>
+        )}
+        {tile.kind === 'tax' && (
+          <span className="shrink-0 font-semibold text-[#8993ac]" style={{ fontSize: 'clamp(6px, 10cqmin, 10px)' }}>
+            ${tile.amount}
+          </span>
+        )}
       </div>
     </button>
   );
@@ -327,6 +341,8 @@ export function tileIcon(tile: Tile): string {
       return '🏥';
     case 'tax':
       return '💸';
+    case 'wealth-tax':
+      return '⚖️';
     case 'card':
       return tile.deck === 'travel' ? '🧳' : '🛃';
     case 'go':

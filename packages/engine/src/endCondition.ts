@@ -10,6 +10,18 @@ export function richestPlayer(state: GameState): PlayerId {
   return ids.reduce((best, id) => (netWorth(state, id) > netWorth(state, best) ? id : best), ids[0]!);
 }
 
+/** The active player currently worth the least — who the wealth-tax tile
+ *  pays. Ties (e.g. a fresh game, everyone still equal) keep whichever of
+ *  the tied players comes first in turn order, mirroring richestPlayer's
+ *  tie-break for the opposite comparison (`<`/`>` rather than `<=`/`>=`, so
+ *  the first candidate found only ever loses ties, never keeps them by
+ *  chance). Always returns someone — the caller (landing on the tile) is
+ *  itself an active player, so the pool is never empty. */
+export function poorestPlayer(state: GameState): PlayerId {
+  const ids = activePlayerIds(state);
+  return ids.reduce((worst, id) => (netWorth(state, id) < netWorth(state, worst) ? id : worst), ids[0]!);
+}
+
 function endGame(draft: GameState, winnerId: PlayerId, events: GameEvent[]): void {
   draft.phase = { type: 'game-over', winnerId };
   events.push({ type: 'game-over', winnerId });

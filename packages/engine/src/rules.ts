@@ -155,3 +155,21 @@ export function netWorth(state: GameState, playerId: PlayerId): number {
   }
   return total;
 }
+
+/** Cut of a player's net worth taken by the wealth-tax tile (Departure Tax)
+ *  and handed to whoever is currently poorest. Charged on net worth rather
+ *  than cash alone, same reasoning as richestPlayer/poorestPlayer below —
+ *  cash-only would let a property-rich, cash-poor player pay almost
+ *  nothing. */
+/** Share of their own net worth a player hands to the poorest when they land
+ *  on the Departure Tax tile. Read by the rules modal and the board tile, so
+ *  changing it here changes every place it is stated. */
+export const WEALTH_TAX_RATE = 0.1;
+
+/** Rounded to the nearest $10, same as house cost elsewhere in this file's
+ *  sibling builders — a bill like "$137" reads as a bug, "$140" reads as a
+ *  rule. Never negative even if `playerId`'s net worth is (a pending debt
+ *  can push it below zero) — you cannot tax a player into more debt. */
+export function wealthTaxAmount(state: GameState, playerId: PlayerId): number {
+  return Math.max(0, Math.round((netWorth(state, playerId) * WEALTH_TAX_RATE) / 10) * 10);
+}
