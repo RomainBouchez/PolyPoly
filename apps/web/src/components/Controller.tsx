@@ -15,6 +15,7 @@ import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
 import { GameRulesModal } from './game/GameRulesModal.js';
 import { IncomingTradeModal } from './game/IncomingTradeModal.js';
 import { PendingActionStrip } from './game/PendingActionBanner.js';
+import { RoundCounter } from './game/RoundCounter.js';
 import { SquatModal } from './game/SquatModal.js';
 import { TradeModal } from './game/TradeModal.js';
 import { TradePanel } from './game/TradePanel.js';
@@ -204,7 +205,10 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
             >
               {me.name.slice(0, 1).toUpperCase()}
             </span>
-            <span className="font-semibold tracking-tight">{me.name}</span>
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate font-semibold tracking-tight">{me.name}</span>
+              <RoundCounter state={state} className="self-start" />
+            </div>
           </div>
           <div className="text-right">
             <CashValue cash={me.cash} baseColor="#34d399" className="text-lg font-semibold tabular-nums" />

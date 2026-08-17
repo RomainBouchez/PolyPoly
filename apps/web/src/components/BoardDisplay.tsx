@@ -2,6 +2,7 @@ import { MotionConfig } from 'motion/react';
 import { BoardGrid } from './board/BoardGrid.js';
 import { ActivityFeed } from './game/ActivityFeed.js';
 import { PendingActionBanner } from './game/PendingActionBanner.js';
+import { RoundCounter } from './game/RoundCounter.js';
 import { PlayersPanel } from './game/PlayersPanel.js';
 import { useSpectator } from '../hooks/useSpectator.js';
 
@@ -29,9 +30,12 @@ export function BoardDisplay() {
           <div className="flex min-w-0 flex-1 items-center justify-center">
             <BoardGrid state={gameState} events={events} myPlayerId="" onAction={NOOP_ACTION}>
               {gameState.phase.type !== 'game-over' && currentPlayer && (
-                <p className="text-lg font-semibold" style={{ color: currentPlayer.color }}>
-                  {currentPlayer.name}'s turn
-                </p>
+                <div className="flex flex-col items-center gap-1.5">
+                  <p className="text-lg font-semibold" style={{ color: currentPlayer.color }}>
+                    {currentPlayer.name}'s turn
+                  </p>
+                  <RoundCounter state={gameState} />
+                </div>
               )}
               <PendingActionBanner state={gameState} />
               <div className="min-h-0 w-full flex-1 overflow-hidden">
