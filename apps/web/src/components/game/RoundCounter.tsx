@@ -9,6 +9,17 @@ export function roundsLeft(state: GameState): number | null {
   return Math.max(0, condition.rounds - state.roundNumber + 1);
 }
 
+/** Whoever acts last in a round — the game ends the moment play would pass
+ *  back past them. Bankrupt seats stay in turnOrder, so pick the last one
+ *  still in the game rather than the last index. */
+function lastToPlay(state: GameState): string | null {
+  for (let i = state.turnOrder.length - 1; i >= 0; i--) {
+    const player = state.players[state.turnOrder[i]!];
+    if (player?.status === 'active') return player.name;
+  }
+  return null;
+}
+
 /**
  * How long the game has left, when it is playing to a round limit. Without it
  * a timed game gives no sense of pacing — you cannot tell whether to keep
@@ -20,6 +31,7 @@ export function RoundCounter({ state, className = '' }: { state: GameState; clas
   const condition = state.config.endCondition;
   const total = condition.type === 'round-limit' ? condition.rounds : 0;
   const urgent = left <= 3;
+  const finalName = left <= 1 ? lastToPlay(state) : null;
 
   return (
     <motion.span
@@ -34,7 +46,9 @@ export function RoundCounter({ state, className = '' }: { state: GameState; clas
       } ${className}`}
     >
       <span>⏳</span>
-      {left === 0 ? 'Final round' : `${left} round${left === 1 ? '' : 's'} left`}
+      {/* On the closing round, naming who ends it is more use than a count of
+          one — it tells everyone exactly how much play is left. */}
+      {finalName ? `Last turn — ends after ${finalName}` : `${left} round${left === 1 ? '' : 's'} left`}
       <span className="font-normal text-slate-500">
         · {Math.min(state.roundNumber, total)}/{total}
       </span>
