@@ -3,6 +3,7 @@ import {
   ALLIANCE_DURATION_ROUNDS,
   BID_INCREMENT,
   EMERGENCY_FINE,
+  FULL_SET_VALUE_MULTIPLIER,
   EMERGENCY_HEALTH_THRESHOLD,
   GO_HEALTH_BONUS,
   GO_SALARY,
@@ -85,7 +86,7 @@ export function buildRuleSections(state: GameState): RuleSection[] {
         },
         {
           title: 'Net worth',
-          body: 'Your worth is your cash plus everything you own — properties at face value, mortgaged ones at their mortgage value, plus what you paid for your houses. It is the figure shown under your cash, and the one that decides a game won on points.',
+          body: `Your worth is your cash plus what your holdings would fetch: a property inside a country you own outright counts ${FULL_SET_VALUE_MULTIPLIER}× its price, a lone one counts its price, a mortgaged one its mortgage value, and houses count what they cost to build. Money you currently owe is subtracted. It is the figure under your cash, and the one that decides a game won on points.`,
         },
       ],
     },

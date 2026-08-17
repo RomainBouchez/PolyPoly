@@ -109,17 +109,49 @@ export function isAllied(state: GameState, aId: PlayerId, bId: PlayerId): boolea
   return state.alliances.some((a) => a.players.includes(aId) && a.players.includes(bId));
 }
 
+/** A property inside a complete country is worth far more than its printed
+ *  price — it is the only thing you can build on, and it is what actually
+ *  changes hands at a premium. Applied regardless of doubleRentOnFullSet:
+ *  the right to build is the bigger part of that value, and it exists either
+ *  way. */
+export const FULL_SET_VALUE_MULTIPLIER = 2;
+
+/**
+ * What a player is worth, and the figure that decides a game won on points —
+ * `richestPlayer` calls this, so the number on screen is the one that settles
+ * the game.
+ *
+ * Valued at what a holding would fetch, not at what it cost: a full country
+ * carries a premium, houses count at build cost (you would demand that back in
+ * a trade), and a mortgaged property drops to its mortgage value — which makes
+ * mortgaging neutral, since the cash it raised is already counted.
+ *
+ * A pending debt is subtracted. Someone frantically mortgaging to cover $500
+ * is not as rich as their holdings suggest, and that is exactly the moment the
+ * standings are being read.
+ */
 export function netWorth(state: GameState, playerId: PlayerId): number {
   const player = state.players[playerId];
   if (!player) return 0;
   let total = player.cash;
   for (const [tileIndexStr, ownership] of Object.entries(state.ownership)) {
     if (ownership.ownerId !== playerId) continue;
-    const tile = getOwnableTile(state.board, Number(tileIndexStr));
-    total += ownership.mortgaged ? tile.mortgageValue : tile.price;
+    const tileIndex = Number(tileIndexStr);
+    const tile = getOwnableTile(state.board, tileIndex);
+    if (ownership.mortgaged) {
+      total += tile.mortgageValue;
+    } else {
+      const inFullSet = tile.kind === 'property' && ownsFullGroup(state, playerId, tileIndex);
+      total += inFullSet ? tile.price * FULL_SET_VALUE_MULTIPLIER : tile.price;
+    }
     if (tile.kind === 'property') {
       total += ownership.houses * tile.houseCost;
     }
+  }
+
+  const phase = state.phase;
+  if (phase.type === 'awaiting-debt-settlement' && phase.playerId === playerId) {
+    total -= phase.amount;
   }
   return total;
 }
