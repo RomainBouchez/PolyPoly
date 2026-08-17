@@ -24,6 +24,7 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
   const hasPriceSlot = 'price' in tile;
   const price = !ownership && hasPriceSlot ? tile.price : undefined;
   const flagSvg = tile.kind === 'property' ? GROUP_FLAG_SVG[tile.group as PropertyGroup] : undefined;
+  const heldHostage = state.hostage?.tileIndex === tile.index;
 
   if (tile.kind === 'jail') {
     return <JailTile tileIndex={tile.index} position={position} onSelect={onSelect} />;
@@ -126,6 +127,23 @@ export function BoardTile({ tile, state, position, side, onSelect }: BoardTilePr
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25, ease: 'easeOut' }}
           />
+        )}
+      </AnimatePresence>
+
+      {/* A held tile earns its owner nothing, so it needs to read as frozen at
+          a glance — otherwise players keep expecting rent from it. */}
+      <AnimatePresence>
+        {heldHostage && (
+          <motion.div
+            className="pointer-events-none absolute inset-0 z-[5] flex items-start justify-center rounded-md"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: 'easeOut' }}
+            style={{ backgroundColor: 'rgba(190, 18, 60, 0.28)', boxShadow: 'inset 0 0 0 2px rgba(244,63,94,0.85)' }}
+          >
+            <span className="mt-[4cqmin] text-[clamp(8px,12cqmin,16px)] leading-none drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">🎭</span>
+          </motion.div>
         )}
       </AnimatePresence>
 

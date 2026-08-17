@@ -5,6 +5,7 @@ import {
   createRng,
   getLegalActions,
   IllegalActionError,
+  jailTileIndex,
   SQUAT_CARD_ID,
   type GameAction,
   type GameEvent,
@@ -232,6 +233,30 @@ export class Room {
     next.heldSquatCards.push({ cardId: SQUAT_CARD_ID, deck: 'travel', playerId, buildingLevel });
     this.gameState = next;
     return [{ type: 'squat-granted', playerId, buildingLevel }];
+  }
+
+  /** Testing/dev helper for the host — jails a player outright, which is the
+   *  only way into the hostage flow without waiting to land on Go To Jail. */
+  sendToJail(playerId: PlayerId): GameEvent[] {
+    if (this.phase !== 'playing' || !this.gameState) {
+      throw new IllegalActionError('No game in progress');
+    }
+    const player = this.gameState.players[playerId];
+    if (!player) throw new IllegalActionError('Player not found');
+    if (player.status !== 'active') throw new IllegalActionError('That player is out of the game');
+
+    const next = structuredClone(this.gameState);
+    const target = next.players[playerId]!;
+    target.position = jailTileIndex(next.board);
+    target.inJail = true;
+    target.jailTurns = 0;
+    // Straight to the jail decision when it is their turn, so the hostage
+    // option is reachable on the very next action rather than a turn later.
+    if (next.turnOrder[next.currentPlayerIndex] === playerId) {
+      next.phase = { type: 'awaiting-jail-decision', playerId };
+    }
+    this.gameState = next;
+    return [{ type: 'sent-to-jail', playerId, reason: 'card' }];
   }
 
   /** Server-driven, not tied to any player — checked on a timer for time-limit games. */

@@ -78,6 +78,10 @@ export function getLegalActions(state: GameState, playerId: PlayerId): GameActio
         if (ownership.ownerId === playerId || ownership.mortgaged) continue;
         const owner = state.players[ownership.ownerId];
         if (!owner || owner.status !== 'active') continue;
+        // Hospitals never charge rent — their income is the illness payout,
+        // which a hostage does not touch. Holding one costs its owner nothing,
+        // so offering it is just a way to waste your one hostage.
+        if (state.board.tiles[Number(key)]?.kind === 'hospital') continue;
         actions.push({ type: 'take-hostage', playerId, tileIndex: Number(key) });
       }
     }

@@ -60,6 +60,16 @@ export function pendingAction(state: GameState): PendingAction | null {
     };
   }
 
+  if (state.hostage) {
+    const { kidnapperId, ownerId, tileIndex } = state.hostage;
+    return {
+      key: `hostage-${tileIndex}`,
+      icon: '🎭',
+      title: `${playerName(state, kidnapperId)} holds ${tileName(state, tileIndex)}`,
+      detail: `${playerName(state, ownerId)} earns nothing on it until they are out of jail`,
+    };
+  }
+
   const trade = state.pendingTrades[0];
   if (trade) {
     return {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { applyAction } from './applyAction.js';
 import { IllegalActionError } from './errors.js';
+import { getLegalActions } from './legalActions.js';
 import { computeRent } from './rules.js';
 import { P1, P2, P3, freshState, scriptedRng } from './testUtils.js';
 import type { GameState } from './types.js';
@@ -183,5 +184,37 @@ describe('hostage', () => {
     expect(() => applyAction(state, { type: 'take-hostage', playerId: P1, tileIndex: 3 }, scriptedRng([]))).toThrow(
       IllegalActionError,
     );
+  });
+});
+
+describe('hostage targets', () => {
+  it('never offers a hospital, which earns no rent to freeze', () => {
+    const state = freshState({ hostageMode: true });
+    state.ownership[6] = { ownerId: P2, houses: 0, mortgaged: false }; // Central Hospital
+    state.ownership[3] = { ownerId: P2, houses: 0, mortgaged: false }; // Lisbon
+    state.players[P1]!.inJail = true;
+    state.phase = { type: 'awaiting-jail-decision', playerId: P1 };
+
+    const targets = getLegalActions(state, P1)
+      .filter((a) => a.type === 'take-hostage')
+      .map((a) => (a as { tileIndex: number }).tileIndex);
+
+    expect(targets).toContain(3);
+    expect(targets).not.toContain(6);
+  });
+
+  it('skips mortgaged properties and the player’s own', () => {
+    const state = freshState({ hostageMode: true });
+    state.ownership[1] = { ownerId: P1, houses: 0, mortgaged: false }; // mine
+    state.ownership[3] = { ownerId: P2, houses: 0, mortgaged: true }; // mortgaged
+    state.ownership[8] = { ownerId: P2, houses: 0, mortgaged: false }; // fair game
+    state.players[P1]!.inJail = true;
+    state.phase = { type: 'awaiting-jail-decision', playerId: P1 };
+
+    const targets = getLegalActions(state, P1)
+      .filter((a) => a.type === 'take-hostage')
+      .map((a) => (a as { tileIndex: number }).tileIndex);
+
+    expect(targets).toEqual([8]);
   });
 });

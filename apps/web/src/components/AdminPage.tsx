@@ -9,10 +9,11 @@ const SQUAT_LEVELS = [
 ];
 
 export function AdminPage() {
-  const { connected, room, config, resetGame, kickPlayer, grantSquat } = useAdmin();
+  const { connected, room, config, resetGame, kickPlayer, grantSquat, sendToJail } = useAdmin();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [squatPlayerId, setSquatPlayerId] = useState('');
+  const [jailPlayerId, setJailPlayerId] = useState('');
   const [squatLevel, setSquatLevel] = useState(SQUAT_LEVELS[0]!.value);
 
   async function handleReset() {
@@ -38,6 +39,15 @@ export function AdminPage() {
     setBusy(false);
     const levelLabel = SQUAT_LEVELS.find((l) => l.value === squatLevel)?.label;
     setMessage(result.ok ? `Squat pass (${levelLabel}) granted.` : (result.reason ?? 'Grant failed'));
+  }
+
+  async function handleSendToJail() {
+    if (!jailPlayerId) return;
+    setBusy(true);
+    const result = await sendToJail(jailPlayerId);
+    setBusy(false);
+    const name = room?.players.find((p) => p.id === jailPlayerId)?.name ?? 'Player';
+    setMessage(result.ok ? `${name} sent to jail.` : (result.reason ?? 'Failed'));
   }
 
   return (
@@ -76,6 +86,39 @@ export function AdminPage() {
             </ul>
           )}
         </div>
+
+        {room?.phase === 'playing' && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">
+            <h2 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Send to jail <span className="normal-case text-slate-500">— testing shortcut</span>
+            </h2>
+            <div className="flex flex-wrap items-center gap-2">
+              <select
+                value={jailPlayerId}
+                onChange={(e) => setJailPlayerId(e.target.value)}
+                className="rounded-md border border-slate-700 bg-slate-800 px-2 py-1.5 text-sm text-slate-100"
+              >
+                <option value="">Player…</option>
+                {room.players.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <button
+                disabled={busy || !jailPlayerId}
+                onClick={handleSendToJail}
+                className="rounded-md bg-rose-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Jail
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-slate-600">
+              Jail is the only place the hostage action appears, so this is the way to try that mode without waiting to land on Go
+              To Jail. Needs hostages switched on in the rules to be useful.
+            </p>
+          </div>
+        )}
 
         {room?.phase === 'playing' && (
           <div className="rounded-xl border border-slate-800 bg-slate-900 p-4">

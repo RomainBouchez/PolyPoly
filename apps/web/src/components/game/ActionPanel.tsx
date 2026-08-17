@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { getLegalActions, type GameAction, type GameState, type PlayerId } from '@polypoly/engine';
+import { HostageModal } from './HostageModal.js';
 
 interface ActionPanelProps {
   state: GameState;
@@ -26,8 +27,13 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [bidAmount, setBidAmount] = useState<number | null>(null);
+  const [hostageOpen, setHostageOpen] = useState(false);
 
-  const legal = getLegalActions(state, myPlayerId).filter((a) => TURN_ACTION_TYPES.has(a.type));
+  const allLegal = getLegalActions(state, myPlayerId).filter((a) => TURN_ACTION_TYPES.has(a.type));
+  // The engine offers one take-hostage per eligible property — fifteen buttons
+  // on a real board. They collapse into a single entry that opens a picker.
+  const hostageTargets = allLegal.filter((a) => a.type === 'take-hostage').map((a) => a.tileIndex);
+  const legal = allLegal.filter((a) => a.type !== 'take-hostage');
 
   async function run(action: GameAction) {
     setBusy(true);
@@ -75,6 +81,11 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
         </p>
       )}
       <div className="flex flex-wrap justify-center gap-2">
+        {hostageTargets.length > 0 && (
+          <ActionButton onClick={() => setHostageOpen(true)} disabled={busy} variant="secondary">
+            🎭 Take a hostage
+          </ActionButton>
+        )}
         {legal.map((action) => {
           if (action.type === 'auction-bid') {
             // Bids raise in $10 steps — the min from the engine already
@@ -130,6 +141,18 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
       </div>
 
       {lastError && <p className="text-center text-sm text-red-400">{lastError}</p>}
+
+      <AnimatePresence>
+        {hostageOpen && (
+          <HostageModal
+            state={state}
+            myPlayerId={myPlayerId}
+            targets={hostageTargets}
+            onAction={onAction}
+            onClose={() => setHostageOpen(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }
