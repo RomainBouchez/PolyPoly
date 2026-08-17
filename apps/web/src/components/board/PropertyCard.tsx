@@ -13,6 +13,7 @@ import {
   JAIL_FINE,
   SUNNY_DAY_DURATION_MAX,
   SUNNY_DAY_DURATION_MIN,
+  UNMORTGAGE_INTEREST,
   UTILITY_RENT_MULTIPLIER_BOTH,
   UTILITY_RENT_MULTIPLIER_ONE,
   getLegalActions,
@@ -97,6 +98,11 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
   const unmortgage = legal.find((a) => a.type === 'unmortgage');
   const [refusal, setRefusal] = useState<string | null>(null);
   const blockReason = isMine ? buildBlockReason(state, myPlayerId, tileIndex) : null;
+
+  // What each button actually costs or pays, so nobody has to remember the
+  // house price or work out the 10% interest on a mortgage in their head.
+  const houseCost = tile.kind === 'property' ? tile.houseCost : 0;
+  const mortgageValue = isOwnable(tile) ? tile.mortgageValue : 0;
 
   // The server is the authority, so a tap can still be refused even when the
   // action was offered — a race against another player, or a guard the legal-
@@ -311,22 +317,34 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
           {isMine && (build || sell || mortgage || unmortgage) && (
             <div className="flex items-center justify-center gap-3 px-4 py-3">
               {build && (
-                <IconButton label="Build" onClick={() => run(build)}>
+                <IconButton
+                  label={(ownership?.houses ?? 0) === 4 ? 'Build hotel' : 'Build'}
+                  amount={-houseCost}
+                  onClick={() => run(build)}
+                >
                   ↑
                 </IconButton>
               )}
               {sell && (
-                <IconButton label="Sell house" onClick={() => run(sell)}>
+                <IconButton
+                  label={ownership?.houses === 5 ? 'Sell hotel' : 'Sell house'}
+                  amount={houseCost / 2}
+                  onClick={() => run(sell)}
+                >
                   ↓
                 </IconButton>
               )}
               {mortgage && (
-                <IconButton label="Mortgage" onClick={() => run(mortgage)}>
+                <IconButton label="Mortgage" amount={mortgageValue} onClick={() => run(mortgage)}>
                   🏦
                 </IconButton>
               )}
               {unmortgage && (
-                <IconButton label="Unmortgage" onClick={() => run(unmortgage)}>
+                <IconButton
+                  label="Unmortgage"
+                  amount={-Math.round(mortgageValue * UNMORTGAGE_INTEREST)}
+                  onClick={() => run(unmortgage)}
+                >
                   💰
                 </IconButton>
               )}
@@ -413,17 +431,37 @@ function healthEffectLabel(effect: { cashDelta: number; healthDelta: number; pha
   return `Landing here: ${parts.join(', ')}`;
 }
 
-function IconButton({ children, label, onClick }: { children: string; label: string; onClick: () => void }) {
+/** `amount` is signed from the player's side: positive is cash in, negative is
+ *  cash out. Shown on the button itself so the price is read before the tap. */
+function IconButton({
+  children,
+  label,
+  amount,
+  onClick,
+}: {
+  children: string;
+  label: string;
+  amount: number;
+  onClick: () => void;
+}) {
+  const price = `${amount >= 0 ? '+' : '−'}$${Math.abs(amount).toLocaleString('en-US')}`;
   return (
     <motion.button
       onClick={onClick}
-      title={label}
+      title={`${label} (${price})`}
       whileTap={{ scale: 0.94 }}
       transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
       className="flex flex-col items-center gap-0.5 rounded-2xl bg-violet-600 px-2.5 py-1.5 text-white active:bg-violet-500"
     >
       <span className="text-lg leading-none">{children}</span>
       <span className="text-[10px] font-medium leading-none whitespace-nowrap">{label}</span>
+      <span
+        className={`text-[10px] font-semibold leading-none tabular-nums whitespace-nowrap ${
+          amount >= 0 ? 'text-emerald-200' : 'text-violet-200'
+        }`}
+      >
+        {price}
+      </span>
     </motion.button>
   );
 }
