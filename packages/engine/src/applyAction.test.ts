@@ -120,14 +120,15 @@ describe('tax', () => {
   });
 });
 
-// Tile 4, Departure Tax: pays a share of the payer's own net worth (rounded to
-// the nearest $10) straight to whoever is currently poorest, not the bank. The
-// rate lives in WEALTH_TAX_RATE; nothing here should hard-code it.
+// Tile 4, Departure Tax: pays a share of the payer's own cash (rounded to the
+// nearest $10) straight to whoever is currently poorest, not the bank. The
+// rate lives in WEALTH_TAX_RATE and applies to cash on hand; nothing here
+// should hard-code either.
 describe('wealth-tax', () => {
   // Every test below lands P1 on tile 4 with the same non-double [1,3] roll
   // the old fixed-$200 test used — it's still the shortest way there from Go.
 
-  it('pays a share of the payer net worth to the poorest player', () => {
+  it('pays a share of the payer cash to the poorest player', () => {
     const s = freshState();
     s.players[P1]!.cash = 2000; // payer is comfortably the richest
     s.players[P2]!.cash = 200; // clearly the poorest
@@ -164,19 +165,21 @@ describe('wealth-tax', () => {
     expect(events.some((e) => e.type === 'wealth-tax-paid' && e.toId === P2)).toBe(true);
   });
 
-  it('routes an unaffordable charge through the normal debt-settlement path, not the bank', () => {
-    const s = freshState();
-    s.players[P1]!.cash = 10;
-    s.ownership[43] = { ownerId: P1, houses: 0, mortgaged: false }; // Paris, price 400 -> net worth 410, 5% = 20
-    s.players[P2]!.cash = 50; // poorest, so the intended creditor
-    const { state: next, events } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+  // Charging on cash rather than net worth makes the bill always payable, so
+  // this tile can no longer open the debt path at all — a property-rich, cash-
+  // poor player is charged on what they are actually carrying.
+  it('never charges more than the player is holding, however much property they own', () => {
+    for (const cash of [0, 5, 10, 95, 137, 2000]) {
+      const s = freshState();
+      s.players[P1]!.cash = cash;
+      s.ownership[43] = { ownerId: P1, houses: 0, mortgaged: false }; // Paris, price 400
+      s.players[P2]!.cash = 0; // poorest, the intended recipient
+      expect(wealthTaxAmount(s, P1)).toBeLessThanOrEqual(cash);
 
-    const owed = wealthTaxAmount(s, P1);
-    expect(owed).toBeGreaterThan(s.players[P1]!.cash); // the scenario is only meaningful if unaffordable
-    expect(next.players[P1]!.cash).toBe(10); // not partially deducted
-    expect(next.phase).toEqual({ type: 'awaiting-debt-settlement', playerId: P1, creditorId: P2, amount: owed });
-    expect(events.some((e) => e.type === 'debt-pending' && e.creditorId === P2 && e.amount === owed)).toBe(true);
-    expect(events.some((e) => e.type === 'wealth-tax-paid')).toBe(false); // not resolved yet
+      const { state: next } = applyAction(s, { type: 'roll', playerId: P1 }, scriptedRng([1, 3]));
+      expect(next.phase.type).not.toBe('awaiting-debt-settlement');
+      expect(next.players[P1]!.cash).toBe(cash - wealthTaxAmount(s, P1));
+    }
   });
 
   it('never picks a bankrupt player as the recipient', () => {

@@ -296,7 +296,7 @@ export function PropertyCard({ state, tileIndex, myPlayerId, onAction, onClose }
           {tile.kind === 'wealth-tax' && (
             <div className="px-4 py-2 text-sm text-slate-300">
               <p>
-                ⚖️ Pay {Math.round(WEALTH_TAX_RATE * 100)}% of your net worth straight to whoever currently has the least — skipped if that's already you.
+                ⚖️ Pay {Math.round(WEALTH_TAX_RATE * 100)}% of the cash you are holding straight to whoever is worth the least — skipped if that's already you.
               </p>
             </div>
           )}

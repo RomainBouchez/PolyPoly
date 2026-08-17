@@ -160,7 +160,7 @@ export function buildRuleSections(state: GameState): RuleSection[] {
       entries: [
         {
           title: 'Departure tax',
-          body: `Land on Departure Tax and you pay ${Math.round(WEALTH_TAX_RATE * 100)}% of your net worth straight to whoever currently has the least — not the bank. Already the poorest yourself? Nothing happens.`,
+          body: `Land on Departure Tax and you pay ${Math.round(WEALTH_TAX_RATE * 100)}% of the cash you are holding straight to whoever is worth the least — not the bank. Already the poorest yourself? Nothing happens.`,
         },
         {
           title: 'Mortgaging',
