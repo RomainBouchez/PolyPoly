@@ -39,8 +39,8 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
   // Rolled once up-front (not lazily on first check) so replays stay
   // deterministic regardless of how many other rng draws happen first.
   const rainyRange = RAINY_DAY_TRIGGER_MAX - RAINY_DAY_TRIGGER_MIN + 1;
-  const triggerTurn = config.rainyDay ? RAINY_DAY_TRIGGER_MIN + rng.nextInt(rainyRange) - 1 : null;
-  const durationTurns = config.rainyDay ? rng.nextInt(2) : 0;
+  const triggerRound = config.rainyDay ? RAINY_DAY_TRIGGER_MIN + rng.nextInt(rainyRange) - 1 : null;
+  const durationRounds = config.rainyDay ? rng.nextInt(2) : 0;
 
   return {
     board: boardEurope,
@@ -61,8 +61,8 @@ export function createInitialState(config: GameConfig, playerInfos: NewPlayerInf
     pendingTrades: [],
     nextTradeId: 1,
     alliances: [],
-    rainyDay: { triggerTurn, durationTurns, turnsRemaining: 0, triggered: false },
-    sunnyDay: { turnsRemaining: 0 },
+    rainyDay: { triggerRound, durationRounds, roundsRemaining: 0, triggered: false },
+    sunnyDay: { roundsRemaining: 0 },
     hostage: null,
   };
 }

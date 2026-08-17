@@ -1,6 +1,6 @@
 import {
   AIRPORT_RENT_BY_COUNT,
-  ALLIANCE_DURATION_TURNS,
+  ALLIANCE_DURATION_ROUNDS,
   BID_INCREMENT,
   EMERGENCY_FINE,
   EMERGENCY_HEALTH_THRESHOLD,
@@ -240,7 +240,7 @@ export function buildRuleSections(state: GameState): RuleSection[] {
         },
         {
           title: 'Alliance',
-          body: `A card can pair you with another player for ${ALLIANCE_DURATION_TURNS} turns: rent between you is halved, and in health mode you can pass health to each other.`,
+          body: `A card can pair you with another player for ${ALLIANCE_DURATION_ROUNDS} rounds — a round is everyone playing once, not ${ALLIANCE_DURATION_ROUNDS} single turns. Rent between you is halved, and in health mode you can pass health to each other.`,
           flag: 'allianceMode',
         },
       ],
@@ -286,12 +286,12 @@ export function buildRuleSections(state: GameState): RuleSection[] {
       entries: [
         {
           title: 'Rainy day',
-          body: `Somewhere between turn ${RAINY_DAY_TRIGGER_MIN} and ${RAINY_DAY_TRIGGER_MAX}, rent everywhere doubles for a turn or two. It is scheduled when the game starts, so it lands the same way on a replay.`,
+          body: `Somewhere between round ${RAINY_DAY_TRIGGER_MIN} and ${RAINY_DAY_TRIGGER_MAX}, rent everywhere doubles for a round or two. It is scheduled when the game starts, so it lands the same way on a replay.`,
           flag: 'rainyDay',
         },
         {
           title: 'Sunny day',
-          body: `Landing on the Sunny tile while it rains stops the rain and halves rent instead, for ${SUNNY_DAY_DURATION_MIN}-${SUNNY_DAY_DURATION_MAX} turns.`,
+          body: `Landing on the Sunny tile while it rains stops the rain and halves rent instead, for ${SUNNY_DAY_DURATION_MIN}-${SUNNY_DAY_DURATION_MAX} rounds.`,
           flag: 'rainyDay',
         },
       ],

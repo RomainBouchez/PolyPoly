@@ -3,14 +3,22 @@ import { applyAction } from './applyAction.js';
 import { IllegalActionError } from './errors.js';
 import { computeRent } from './rules.js';
 import { P1, P2, P3, freshState, scriptedRng } from './testUtils.js';
+import type { GameState } from './types.js';
 
 // Tile 3 = Lisbon (property, price 80). Tile 11 = Jail/Just Visiting.
+
+/** One player's turn that ends cleanly: 5+6 is not a double and lands on Jail
+ *  (just visiting) from anywhere the tests start, so nothing is left pending. */
+function takeCleanTurn(state: GameState): GameState {
+  const actor = state.turnOrder[state.currentPlayerIndex]!;
+  return applyAction(state, { type: 'roll', playerId: actor }, scriptedRng([5, 6])).state;
+}
 
 describe('alliance', () => {
   it('halves rent between allied players', () => {
     const state = freshState({ allianceMode: true });
     state.ownership[3] = { ownerId: P2, houses: 0, mortgaged: false };
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 3 }];
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 3 }];
     const baseRent = computeRent(state, 3, 4);
 
     const { events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([1, 2]));
@@ -18,19 +26,26 @@ describe('alliance', () => {
     expect(rentEvent).toMatchObject({ amount: Math.round(baseRent * 0.5) });
   });
 
-  it('expires after 3 finished turns', () => {
+  it('counts full rounds, not individual turns', () => {
     let state = freshState({ allianceMode: true });
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 1 }];
-    // Sum 11 (5+6, non-double) lands P1 on Jail (just visiting) — no pending
-    // phase, so the move cleanly finishes the turn.
-    const { state: after, events } = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([5, 6]));
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 1 }];
+
+    // Ticking per finished turn would have ended this on the very first roll.
+    // It has to survive until every player has played once.
+    for (let i = 0; i < state.turnOrder.length - 1; i++) {
+      state = takeCleanTurn(state);
+      expect(state.alliances).toHaveLength(1);
+    }
+
+    const actor = state.turnOrder[state.currentPlayerIndex]!;
+    const { state: after, events } = applyAction(state, { type: 'roll', playerId: actor }, scriptedRng([5, 6]));
     expect(after.alliances).toHaveLength(0);
     expect(events.some((e) => e.type === 'alliance-ended')).toBe(true);
   });
 
   it('form-alliance card fizzles instead of crashing when everyone is already allied', () => {
     const state = freshState({ allianceMode: true });
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 3 }];
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 3 }];
     state.decks.travel.drawPile.unshift({ id: 'travel-17', text: 'Alliance', effect: { type: 'form-alliance' } });
     state.players[P3]!.position = 23; // 23 + 1 + 1 = 25, a travel card tile
     state.currentPlayerIndex = state.turnOrder.indexOf(P3);
@@ -46,7 +61,7 @@ describe('alliance', () => {
 describe('health transfer', () => {
   it('moves health between allies within bounds', () => {
     const state = freshState({ healthMode: true, allianceMode: true });
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 3 }];
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 3 }];
     state.players[P1]!.health = 50;
     state.players[P2]!.health = 50;
 
@@ -64,7 +79,7 @@ describe('health transfer', () => {
 
   it('rejects a transfer that would exceed the health cap', () => {
     const state = freshState({ healthMode: true, allianceMode: true });
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 3 }];
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 3 }];
     state.players[P1]!.health = 100;
     state.players[P2]!.health = 95;
     expect(() =>
@@ -74,7 +89,7 @@ describe('health transfer', () => {
 
   it('rejects when healthMode is off even if allianceMode is on', () => {
     const state = freshState({ healthMode: false, allianceMode: true });
-    state.alliances = [{ players: [P1, P2], turnsRemaining: 3 }];
+    state.alliances = [{ players: [P1, P2], roundsRemaining: 3 }];
     expect(() =>
       applyAction(state, { type: 'transfer-health', playerId: P1, toId: P2, amount: 5 }, scriptedRng([])),
     ).toThrow(IllegalActionError);
@@ -84,29 +99,42 @@ describe('health transfer', () => {
 describe('rainy day', () => {
   it('schedules a trigger turn and doubles rent for its duration', () => {
     const state = freshState({ rainyDay: true });
-    expect(state.rainyDay.triggerTurn).not.toBeNull();
-    expect(state.rainyDay.durationTurns).toBeGreaterThanOrEqual(1);
+    expect(state.rainyDay.triggerRound).not.toBeNull();
+    expect(state.rainyDay.durationRounds).toBeGreaterThanOrEqual(1);
 
     // Force it active right now and confirm computeRent doubles.
     state.ownership[3] = { ownerId: P2, houses: 0, mortgaged: false };
     const normalRent = computeRent(state, 3, 4);
-    state.rainyDay.turnsRemaining = 1;
+    state.rainyDay.roundsRemaining = 1;
     expect(computeRent(state, 3, 4)).toBe(normalRent * 2);
   });
 
-  it('fires the started/ended events across the scheduled turns', () => {
+  it('fires the started/ended events across the scheduled rounds', () => {
     let state = freshState({ rainyDay: true });
-    state.rainyDay = { triggerTurn: 2, durationTurns: 1, turnsRemaining: 0, triggered: false };
+    state.rainyDay = { triggerRound: 2, durationRounds: 1, roundsRemaining: 0, triggered: false };
 
-    // Turn 1 -> 2: crosses the trigger turn (sum 11 = jail visit, clean end of turn).
-    let result = applyAction(state, { type: 'roll', playerId: P1 }, scriptedRng([5, 6]));
+    // Nothing happens part-way through the opening round.
+    for (let i = 0; i < state.turnOrder.length - 1; i++) {
+      state = takeCleanTurn(state);
+      expect(state.rainyDay.triggered).toBe(false);
+    }
+
+    // Completing the round crosses into round 2 and starts the rain.
+    let actor = state.turnOrder[state.currentPlayerIndex]!;
+    let result = applyAction(state, { type: 'roll', playerId: actor }, scriptedRng([5, 6]));
     expect(result.events.some((e) => e.type === 'rainy-day-started')).toBe(true);
-    expect(result.state.rainyDay.turnsRemaining).toBe(1);
+    expect(result.state.rainyDay.roundsRemaining).toBe(1);
 
-    // Next finished turn ticks it down to 0 and ends it.
-    result = applyAction(result.state, { type: 'roll', playerId: P2 }, scriptedRng([5, 6]));
+    // It lasts a whole round, not one player's turn.
+    state = result.state;
+    for (let i = 0; i < state.turnOrder.length - 1; i++) {
+      state = takeCleanTurn(state);
+      expect(state.rainyDay.roundsRemaining).toBe(1);
+    }
+    actor = state.turnOrder[state.currentPlayerIndex]!;
+    result = applyAction(state, { type: 'roll', playerId: actor }, scriptedRng([5, 6]));
     expect(result.events.some((e) => e.type === 'rainy-day-ended')).toBe(true);
-    expect(result.state.rainyDay.turnsRemaining).toBe(0);
+    expect(result.state.rainyDay.roundsRemaining).toBe(0);
   });
 });
 

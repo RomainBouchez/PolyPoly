@@ -8,7 +8,7 @@ import { buildHouse, sellHouse } from './houses.js';
 import { mortgageProperty, unmortgageProperty } from './mortgage.js';
 import type { Rng } from './rng.js';
 import {
-  ALLIANCE_DURATION_TURNS,
+  ALLIANCE_DURATION_ROUNDS,
   ALLIANCE_RENT_MULTIPLIER,
   EMERGENCY_FINE,
   EMERGENCY_HEALTH_THRESHOLD,
@@ -432,11 +432,11 @@ function resolveTile(
     }
 
     case 'sunny': {
-      if (draft.config.rainyDay && draft.rainyDay.turnsRemaining > 0) {
-        draft.rainyDay.turnsRemaining = 0;
+      if (draft.config.rainyDay && draft.rainyDay.roundsRemaining > 0) {
+        draft.rainyDay.roundsRemaining = 0;
         events.push({ type: 'rainy-day-ended' });
         const turns = SUNNY_DAY_DURATION_MIN + rng.nextInt(SUNNY_DAY_DURATION_MAX - SUNNY_DAY_DURATION_MIN + 1);
-        draft.sunnyDay.turnsRemaining = turns;
+        draft.sunnyDay.roundsRemaining = turns;
         events.push({ type: 'sunny-day-started', turns });
       }
       break;
@@ -656,7 +656,7 @@ function applyCardDraw(draft: GameState, playerId: PlayerId, deckName: 'travel' 
         return;
       }
       const partnerId = eligible[rng.nextInt(eligible.length) - 1]!;
-      draft.alliances.push({ players: [playerId, partnerId], turnsRemaining: ALLIANCE_DURATION_TURNS });
+      draft.alliances.push({ players: [playerId, partnerId], roundsRemaining: ALLIANCE_DURATION_ROUNDS });
       events.push({ type: 'alliance-formed', players: [playerId, partnerId] });
       resolveEndOfMove(draft, playerId, events);
       return;
@@ -733,18 +733,20 @@ function finishTurn(draft: GameState, events: GameEvent[]): void {
   if (draft.phase.type === 'game-over') return;
   draft.doublesCount = 0;
   const currentPlayerId = draft.turnOrder[draft.currentPlayerIndex]!;
+  const roundBefore = draft.roundNumber;
   const nextId = advanceToNextActivePlayer(draft);
   events.push({ type: 'turn-ended', playerId: currentPlayerId, nextPlayerId: nextId });
-  tickTurnEffects(draft, events);
+  if (draft.roundNumber !== roundBefore) tickRoundEffects(draft, events);
   if (checkLastStanding(draft, events)) return;
   if (checkRoundLimit(draft, events)) return;
   startTurnPhase(draft, nextId);
 }
 
-/** Advances per-turn-boundary effects (alliance duration, rainy day
- *  scheduling/duration) — called once per finished turn, i.e. per player's
- *  turn, not per full round. */
-function tickTurnEffects(draft: GameState, events: GameEvent[]): void {
+/** Timed effects (alliance duration, weather) tick once per full trip around
+ *  the table, not once per player turn. Per turn, "3 turns" of alliance meant
+ *  barely half a round at five players — nothing like what anyone agreeing to
+ *  a three-turn pact expects. */
+function tickRoundEffects(draft: GameState, events: GameEvent[]): void {
   if (draft.config.rainyDay) {
     checkRainyDay(draft, events);
     checkSunnyDay(draft, events);
@@ -752,8 +754,8 @@ function tickTurnEffects(draft: GameState, events: GameEvent[]): void {
 
   if (draft.config.allianceMode && draft.alliances.length > 0) {
     draft.alliances = draft.alliances.filter((alliance) => {
-      alliance.turnsRemaining -= 1;
-      if (alliance.turnsRemaining <= 0) {
+      alliance.roundsRemaining -= 1;
+      if (alliance.roundsRemaining <= 0) {
         events.push({ type: 'alliance-ended', players: alliance.players });
         return false;
       }
@@ -764,21 +766,21 @@ function tickTurnEffects(draft: GameState, events: GameEvent[]): void {
 
 function checkRainyDay(draft: GameState, events: GameEvent[]): void {
   const rd = draft.rainyDay;
-  if (!rd.triggered && rd.triggerTurn !== null && draft.turnNumber >= rd.triggerTurn) {
+  if (!rd.triggered && rd.triggerRound !== null && draft.roundNumber >= rd.triggerRound) {
     rd.triggered = true;
-    rd.turnsRemaining = rd.durationTurns;
-    events.push({ type: 'rainy-day-started', turns: rd.durationTurns });
-  } else if (rd.turnsRemaining > 0) {
-    rd.turnsRemaining -= 1;
-    if (rd.turnsRemaining === 0) events.push({ type: 'rainy-day-ended' });
+    rd.roundsRemaining = rd.durationRounds;
+    events.push({ type: 'rainy-day-started', turns: rd.durationRounds });
+  } else if (rd.roundsRemaining > 0) {
+    rd.roundsRemaining -= 1;
+    if (rd.roundsRemaining === 0) events.push({ type: 'rainy-day-ended' });
   }
 }
 
 function checkSunnyDay(draft: GameState, events: GameEvent[]): void {
   const sd = draft.sunnyDay;
-  if (sd.turnsRemaining > 0) {
-    sd.turnsRemaining -= 1;
-    if (sd.turnsRemaining === 0) events.push({ type: 'sunny-day-ended' });
+  if (sd.roundsRemaining > 0) {
+    sd.roundsRemaining -= 1;
+    if (sd.roundsRemaining === 0) events.push({ type: 'sunny-day-ended' });
   }
 }
 

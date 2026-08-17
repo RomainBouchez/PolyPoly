@@ -27,17 +27,17 @@ export const GO_HEALTH_BONUS = 5;
 export const JAIL_HEALTH_DRAIN = 3;
 export const PHARMACY_RESET_HEALTH = 50;
 
-export const ALLIANCE_DURATION_TURNS = 3;
+export const ALLIANCE_DURATION_ROUNDS = 3;
 /** Rent paid between two allied players is cut to this fraction. */
 export const ALLIANCE_RENT_MULTIPLIER = 0.5;
 
-/** Rainy day triggers at a random turn number in this inclusive window,
- *  chosen once at game creation, then lasts a random 1-2 turns. */
+/** Rainy day triggers at a random round in this inclusive window, chosen once
+ *  at game creation, then lasts a random 1-2 rounds. */
 export const RAINY_DAY_TRIGGER_MIN = 3;
 export const RAINY_DAY_TRIGGER_MAX = 10;
 
 /** Landing on the 'sunny' tile while it's raining cuts the rain short and
- *  starts a random 1-2 turns of halved rent instead. */
+ *  starts a random 1-2 rounds of halved rent instead. */
 export const SUNNY_DAY_DURATION_MIN = 1;
 export const SUNNY_DAY_DURATION_MAX = 2;
 export const SUNNY_DAY_RENT_MULTIPLIER = 0.5;
@@ -96,9 +96,9 @@ export function computeRent(state: GameState, tileIndex: number, diceSum: number
     rent = diceSum * multiplier;
   }
 
-  if (state.config.rainyDay && state.rainyDay.turnsRemaining > 0) {
+  if (state.config.rainyDay && state.rainyDay.roundsRemaining > 0) {
     rent *= 2;
-  } else if (state.config.rainyDay && state.sunnyDay.turnsRemaining > 0) {
+  } else if (state.config.rainyDay && state.sunnyDay.roundsRemaining > 0) {
     rent = Math.round(rent * SUNNY_DAY_RENT_MULTIPLIER);
   }
   return rent;

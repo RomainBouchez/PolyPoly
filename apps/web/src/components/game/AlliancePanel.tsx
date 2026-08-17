@@ -25,7 +25,7 @@ export function AlliancePanel({ state, myPlayerId, onAction }: AlliancePanelProp
       <div className="mb-1.5 flex items-center justify-between">
         <h2 className="text-xs font-semibold uppercase tracking-wide text-violet-300">Alliance</h2>
         <span className="text-[11px] font-medium text-violet-300/80">
-          {alliance.turnsRemaining} turn{alliance.turnsRemaining === 1 ? '' : 's'} left
+          {alliance.roundsRemaining} round{alliance.roundsRemaining === 1 ? '' : 's'} left
         </span>
       </div>
       <p className="text-sm text-slate-200">

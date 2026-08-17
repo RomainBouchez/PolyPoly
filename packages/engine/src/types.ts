@@ -44,27 +44,27 @@ export interface HeldJailCard {
 }
 
 /** A temporary alliance between two players — see rules.ts's isAllied and
- *  ALLIANCE_DURATION_TURNS/ALLIANCE_RENT_MULTIPLIER. Decremented once per
- *  finished turn (any player's turn, not per game round). */
+ *  ALLIANCE_DURATION_ROUNDS/ALLIANCE_RENT_MULTIPLIER. Counted in full trips
+ *  around the table, so a three-round pact lasts three of everyone's turns. */
 export interface Alliance {
   players: [PlayerId, PlayerId];
-  turnsRemaining: number;
+  roundsRemaining: number;
 }
 
 /** Scheduled once at game creation (config.rainyDay) via the game's own
- *  seeded Rng, so replays stay deterministic. `triggerTurn`/`durationTurns`
+ *  seeded Rng, so replays stay deterministic. `triggerRound`/`durationRounds`
  *  are null/0 when the config toggle is off. */
 export interface RainyDayState {
-  triggerTurn: number | null;
-  durationTurns: number;
-  turnsRemaining: number;
+  triggerRound: number | null;
+  durationRounds: number;
+  roundsRemaining: number;
   triggered: boolean;
 }
 
 /** Started by landing on the 'sunny' tile while it's raining — see the
  *  'sunny' case in applyAction.ts's resolveTile and rules.ts's computeRent. */
 export interface SunnyDayState {
-  turnsRemaining: number;
+  roundsRemaining: number;
 }
 
 /** At most one property held hostage at a time (config.hostageMode) — see
