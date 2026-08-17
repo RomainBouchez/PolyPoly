@@ -1,20 +1,29 @@
 import { useState } from 'react';
+import type { RoomInfo } from '@polypoly/shared';
+import { ColorPicker } from './ColorPicker.js';
 
 interface JoinScreenProps {
   connected: boolean;
   error: string | null;
-  onJoin: (name: string) => void;
+  /** Already populated pre-join — the server broadcasts room state to every
+   *  connected socket, seated or not — so taken colours can be shown here. */
+  room: RoomInfo | null;
+  onJoin: (name: string, color?: string) => void;
 }
 
-export function JoinScreen({ connected, error, onJoin }: JoinScreenProps) {
+export function JoinScreen({ connected, error, room, onJoin }: JoinScreenProps) {
   const [name, setName] = useState('');
+  // No colour picked is a valid choice — the server auto-assigns one, same
+  // as before this feature existed.
+  const [color, setColor] = useState<string | null>(null);
+  const takenColors = new Set((room?.players ?? []).map((p) => p.color));
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-950 px-4 text-slate-100">
       <form
         onSubmit={(e) => {
           e.preventDefault();
-          if (name.trim()) onJoin(name.trim());
+          if (name.trim()) onJoin(name.trim(), color ?? undefined);
         }}
         className="w-full max-w-sm space-y-4 rounded-2xl border border-slate-800 bg-slate-900 p-6"
       >
@@ -31,6 +40,13 @@ export function JoinScreen({ connected, error, onJoin }: JoinScreenProps) {
           maxLength={20}
           className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500"
         />
+
+        <div>
+          <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">
+            Colour <span className="normal-case text-slate-600">(optional — you can also pick in the lobby)</span>
+          </p>
+          <ColorPicker takenColors={takenColors} selected={color} onSelect={(c) => setColor(c === color ? null : c)} />
+        </div>
 
         <button
           type="submit"

@@ -67,6 +67,17 @@ describe('net worth', () => {
     expect(netWorth(state, P1)).toBe(START + 30 + 80 * FULL_SET_VALUE_MULTIPLIER);
   });
 
+  // A hotel is stored as houses === 5. Five separate purchases (4 houses +
+  // the hotel upgrade) were paid for at houseCost each, so it should be
+  // valued at 5 * houseCost, not 4 (undercounting the upgrade) or some other
+  // figure that implies a refund happened along the way.
+  it('counts a hotel at 5x house cost, matching what five purchases actually cost', () => {
+    const state = freshState();
+    own(state, PORTO, { houses: 5 });
+    own(state, LISBON);
+    expect(netWorth(state, P1)).toBe(START + (60 + 80) * FULL_SET_VALUE_MULTIPLIER + 5 * 30);
+  });
+
   it('subtracts a debt the player is currently settling', () => {
     const state = freshState();
     own(state, POROS);

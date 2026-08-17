@@ -17,11 +17,27 @@ export default function App() {
     return <AdminPage />;
   }
 
-  const { connected, joined, room, config, gameState, events, myPlayerId, error, joinAsNew, updateConfig, startGame, sendAction } =
-    useRoom();
+  const {
+    connected,
+    joined,
+    room,
+    config,
+    gameState,
+    events,
+    myPlayerId,
+    error,
+    joinAsNew,
+    setColor,
+    updateConfig,
+    startGame,
+    sendAction,
+  } = useRoom();
 
   if (!joined || !room || !config || !myPlayerId) {
-    return <JoinScreen connected={connected} error={error} onJoin={joinAsNew} />;
+    // `room` is already populated pre-join — the server broadcasts it to
+    // every connected socket on connect, not just seated ones — so the join
+    // screen can show which colours are already taken.
+    return <JoinScreen connected={connected} error={error} room={room} onJoin={joinAsNew} />;
   }
 
   if (room.phase === 'lobby') {
@@ -32,6 +48,7 @@ export default function App() {
         myPlayerId={myPlayerId}
         error={error}
         onUpdateConfig={updateConfig}
+        onSetColor={setColor}
         onStart={startGame}
       />
     );

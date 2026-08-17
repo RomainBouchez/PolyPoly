@@ -64,6 +64,21 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
     broadcastRoomUpdate();
   });
 
+  socket.on('player:set-color', (color, ack) => {
+    if (!boundPlayerId) {
+      ack({ ok: false, reason: 'Not joined' });
+      return;
+    }
+    try {
+      room.setColor(boundPlayerId, color);
+      broadcastRoomUpdate();
+      persist();
+      ack({ ok: true });
+    } catch (err) {
+      ack({ ok: false, reason: errorMessage(err) });
+    }
+  });
+
   socket.on('config:update', (patch) => {
     if (!boundPlayerId) return;
     try {

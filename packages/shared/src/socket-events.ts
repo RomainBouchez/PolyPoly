@@ -4,6 +4,11 @@ import type { PlayerId, RoomInfo } from './room.js';
 export interface JoinPayload {
   roomCode: string;
   name?: string;
+  /** Requested seat colour, from COLOR_PALETTE. Optional — an old client or
+   *  an empty choice still gets a seat via the server's auto-assign. Ignored
+   *  entirely on reconnect/reclaim, which keep whatever colour the seat
+   *  already had. */
+  color?: string;
   /** Present on reconnect: rebinds to the existing seat instead of creating a new one. */
   playerId?: PlayerId;
   sessionToken?: string;
@@ -23,6 +28,9 @@ export interface JoinError {
 
 export interface ClientToServerEvents {
   join: (payload: JoinPayload, ack: (result: JoinAck | JoinError) => void) => void;
+  /** Lobby-only: change the caller's own seat colour. Once the game starts,
+   *  colour is baked into the board and the activity history. */
+  'player:set-color': (color: string, ack: (result: { ok: boolean; reason?: string }) => void) => void;
   'config:update': (config: Partial<GameConfig>) => void;
   'game:start': () => void;
   /** Generic game action envelope; the engine's GameAction union is the real payload shape. */

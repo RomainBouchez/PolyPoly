@@ -88,6 +88,61 @@ describe('buildHouse — ownership requirements', () => {
   });
 });
 
+describe('buildHouse — hotel upgrade cash flow', () => {
+  it('charges exactly one houseCost per purchase, including the 5th that makes the hotel, and refunds nothing', () => {
+    const state = freshState({ evenBuild: false });
+    ownFullPortugal(state);
+    const startCash = state.players[P1]!.cash;
+    const houseCost = 30; // Porto
+
+    for (let i = 0; i < 4; i++) buildHouse(state, P1, 1);
+    expect(state.ownership[1]!.houses).toBe(4);
+    expect(state.players[P1]!.cash).toBe(startCash - 4 * houseCost);
+
+    // The 5th purchase turns the 4 houses into a hotel. It should cost one
+    // more houseCost, same as every other purchase — not refund the houses
+    // already paid for.
+    const houses = buildHouse(state, P1, 1);
+    expect(houses).toBe(5);
+    expect(state.players[P1]!.cash).toBe(startCash - 5 * houseCost);
+  });
+});
+
+describe('buildHouse/sellHouse — hotel bank stock round trip', () => {
+  it('returns the 4 physical houses and consumes 1 hotel on upgrade, then reverses exactly on sale', () => {
+    const state = freshState({ evenBuild: false, limitedHouseSupply: true });
+    ownFullPortugal(state);
+    const initialHouses = state.bank.housesRemaining;
+    const initialHotels = state.bank.hotelsRemaining;
+
+    for (let i = 0; i < 4; i++) buildHouse(state, P1, 1);
+    expect(state.bank.housesRemaining).toBe(initialHouses - 4);
+    expect(state.bank.hotelsRemaining).toBe(initialHotels);
+
+    buildHouse(state, P1, 1); // 4 houses -> hotel
+    expect(state.ownership[1]!.houses).toBe(5);
+    expect(state.bank.housesRemaining).toBe(initialHouses); // all 4 houses given back
+    expect(state.bank.hotelsRemaining).toBe(initialHotels - 1);
+
+    const cashBeforeSell = state.players[P1]!.cash;
+    sellHouse(state, P1, 1); // hotel -> 4 houses
+    expect(state.ownership[1]!.houses).toBe(4);
+    expect(state.bank.housesRemaining).toBe(initialHouses - 4);
+    expect(state.bank.hotelsRemaining).toBe(initialHotels);
+    expect(state.players[P1]!.cash).toBe(cashBeforeSell + 15); // half of houseCost 30
+  });
+
+  it('blocks selling a hotel when the bank cannot supply the 4 houses it would return', () => {
+    const state = freshState({ evenBuild: false, limitedHouseSupply: true });
+    ownFullPortugal(state);
+    state.ownership[1]!.houses = 5;
+    state.bank.housesRemaining = 3; // fewer than the 4 needed to break the hotel
+    state.bank.hotelsRemaining = 11;
+
+    expect(() => sellHouse(state, P1, 1)).toThrow(IllegalActionError);
+  });
+});
+
 describe('sellHouse', () => {
   it('refunds half the house cost and returns it to the bank', () => {
     const state = freshState({ evenBuild: false });

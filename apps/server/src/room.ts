@@ -13,9 +13,15 @@ import {
   type NewPlayerInfo,
   type Rng,
 } from '@polypoly/engine';
-import { DEFAULT_GAME_CONFIG, type GameConfig, type PlayerId, type PlayerIdentity, type RoomInfo, type RoomPhase } from '@polypoly/shared';
-
-const COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#eab308', '#a855f7', '#f97316', '#14b8a6', '#ec4899'];
+import {
+  COLOR_PALETTE,
+  DEFAULT_GAME_CONFIG,
+  type GameConfig,
+  type PlayerId,
+  type PlayerIdentity,
+  type RoomInfo,
+  type RoomPhase,
+} from '@polypoly/shared';
 
 /** Every GameAction except the server-only time-limit tick, which has no playerId. */
 export type PlayerGameAction = Exclude<GameAction, { type: 'check-time-limit' }>;
@@ -54,9 +60,15 @@ export class Room {
     };
   }
 
-  private nextColor(): string {
+  /** Picks a colour for a new seat. Honours a requested colour if it is a
+   *  real palette entry and still free; otherwise (no request, invalid
+   *  request, or someone beat them to it) falls back to the first unused
+   *  palette entry — the old auto-assign behaviour, which is what keeps an
+   *  old client or an empty choice working. */
+  private nextColor(requested?: string): string {
     const used = new Set([...this.players.values()].map((p) => p.identity.color));
-    return COLORS.find((c) => !used.has(c)) ?? COLORS[this.players.size % COLORS.length]!;
+    if (requested && (COLOR_PALETTE as readonly string[]).includes(requested) && !used.has(requested)) return requested;
+    return COLOR_PALETTE.find((c) => !used.has(c)) ?? COLOR_PALETTE[this.players.size % COLOR_PALETTE.length]!;
   }
 
   /** Joins a new player, or — if playerId/sessionToken match a known seat —
@@ -69,7 +81,12 @@ export class Room {
    *  reclaim that seat instead of being turned away. This is a deliberately
    *  low-trust mechanism — knowing a disconnected player's name is enough to
    *  take their seat — acceptable for a LAN party game but worth knowing. */
-  join(params: { name?: string; playerId?: PlayerId; sessionToken?: string }): { playerId: PlayerId; sessionToken: string } | { error: string } {
+  join(params: {
+    name?: string;
+    color?: string;
+    playerId?: PlayerId;
+    sessionToken?: string;
+  }): { playerId: PlayerId; sessionToken: string } | { error: string } {
     if (params.playerId && params.sessionToken) {
       const existing = this.players.get(params.playerId);
       if (existing && existing.sessionToken === params.sessionToken) {
@@ -92,7 +109,7 @@ export class Room {
       identity: {
         id: playerId,
         name: params.name?.trim() || `Player ${this.players.size + 1}`,
-        color: this.nextColor(),
+        color: this.nextColor(params.color),
         isHost: this.players.size === 0,
         connected: true,
       },
@@ -149,6 +166,26 @@ export class Room {
 
   allSocketIds(): string[] {
     return [...this.players.values()].map((p) => p.socketId).filter((id): id is string => id !== null);
+  }
+
+  /** Lets a seated player pick their own colour while still in the lobby.
+   *  Colour becomes fixed the moment the game starts, since it is baked into
+   *  the board tokens and the activity history from then on.
+   *
+   *  No-duplicates is enforced here the same way `join` enforces it: the
+   *  membership check and the write both happen synchronously within this
+   *  one call, and Node never interleaves two socket handlers mid-function,
+   *  so two players tapping the same swatch at once still resolve in order —
+   *  whoever's request runs second sees the first player's colour as taken
+   *  and gets rejected, never a silent overwrite. */
+  setColor(playerId: PlayerId, color: string): void {
+    if (this.phase !== 'lobby') throw new IllegalActionError('Cannot change colour once the game has started');
+    const seated = this.players.get(playerId);
+    if (!seated) throw new IllegalActionError('Player not found');
+    if (!(COLOR_PALETTE as readonly string[]).includes(color)) throw new IllegalActionError('Not a valid colour');
+    const takenByOther = [...this.players.values()].some((p) => p.identity.id !== playerId && p.identity.color === color);
+    if (takenByOther) throw new IllegalActionError('That colour is already taken');
+    seated.identity.color = color;
   }
 
   updateConfig(playerId: PlayerId, patch: Partial<GameConfig>): void {

@@ -15,7 +15,8 @@ export interface RoomHandle {
   events: GameEvent[];
   myPlayerId: PlayerId | null;
   error: string | null;
-  joinAsNew: (name: string) => void;
+  joinAsNew: (name: string, color?: string) => void;
+  setColor: (color: string) => Promise<{ ok: boolean; reason?: string }>;
   updateConfig: (patch: Partial<GameConfig>) => void;
   startGame: () => void;
   sendAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
@@ -30,7 +31,7 @@ export function useRoom(): RoomHandle {
   const [myPlayerId, setMyPlayerId] = useState<PlayerId | null>(null);
   const [error, setError] = useState<string | null>(null);
   const doJoin = useCallback(
-    (payload: { name?: string; playerId?: string; sessionToken?: string }, opts?: { auto?: boolean }) => {
+    (payload: { name?: string; color?: string; playerId?: string; sessionToken?: string }, opts?: { auto?: boolean }) => {
       socket.emit('join', { roomCode: 'HOME', ...payload }, (result) => {
         if (!result.ok) {
           // A silent rejoin that the server will not honour means the seat is
@@ -99,12 +100,18 @@ export function useRoom(): RoomHandle {
   }, [doJoin]);
 
   const joinAsNew = useCallback(
-    (name: string) => {
+    (name: string, color?: string) => {
       clearSession();
-      doJoin({ name });
+      doJoin({ name, color });
     },
     [doJoin],
   );
+
+  const setColor = useCallback((color: string) => {
+    return new Promise<{ ok: boolean; reason?: string }>((resolve) => {
+      socket.emit('player:set-color', color, resolve);
+    });
+  }, []);
 
   const updateConfig = useCallback((patch: Partial<GameConfig>) => {
     socket.emit('config:update', patch);
@@ -130,6 +137,7 @@ export function useRoom(): RoomHandle {
     myPlayerId,
     error,
     joinAsNew,
+    setColor,
     updateConfig,
     startGame,
     sendAction,

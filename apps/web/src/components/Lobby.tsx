@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import type { GameConfig, PlayerId, RoomInfo } from '@polypoly/shared';
+import { ColorPicker } from './ColorPicker.js';
 import { RulesPanel } from './RulesPanel.js';
 
 interface LobbyProps {
@@ -8,14 +10,22 @@ interface LobbyProps {
   myPlayerId: PlayerId;
   error: string | null;
   onUpdateConfig: (patch: Partial<GameConfig>) => void;
+  onSetColor: (color: string) => Promise<{ ok: boolean; reason?: string }>;
   onStart: () => void;
 }
 
-export function Lobby({ room, config, myPlayerId, error, onUpdateConfig, onStart }: LobbyProps) {
+export function Lobby({ room, config, myPlayerId, error, onUpdateConfig, onSetColor, onStart }: LobbyProps) {
   const me = room.players.find((p) => p.id === myPlayerId);
   const isHost = me?.isHost ?? false;
   const canStart = isHost && room.players.length >= 2;
   const joinUrl = typeof window !== 'undefined' ? window.location.origin : '';
+  const takenColors = new Set(room.players.filter((p) => p.id !== myPlayerId).map((p) => p.color));
+  const [colorError, setColorError] = useState<string | null>(null);
+
+  async function pickColor(color: string) {
+    const result = await onSetColor(color);
+    setColorError(result.ok ? null : (result.reason ?? 'Could not change colour'));
+  }
 
   return (
     <div className="min-h-screen bg-slate-950 px-4 py-8 text-slate-100">
@@ -64,6 +74,12 @@ export function Lobby({ room, config, myPlayerId, error, onUpdateConfig, onStart
                 </li>
               ))}
             </ul>
+
+            <div className="mt-4 border-t border-slate-800 pt-3">
+              <p className="mb-2 text-center text-xs font-semibold uppercase tracking-wide text-slate-500">Your colour</p>
+              <ColorPicker takenColors={takenColors} selected={me?.color ?? null} onSelect={pickColor} />
+              {colorError && <p className="mt-2 text-center text-xs text-red-400">{colorError}</p>}
+            </div>
           </div>
 
           {isHost ? (
