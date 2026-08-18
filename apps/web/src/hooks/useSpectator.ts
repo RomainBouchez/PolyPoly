@@ -1,12 +1,19 @@
-import { useEffect, useState } from 'react';
-import type { GameEvent, GameState } from '@polypoly/engine';
+import { useCallback, useEffect, useState } from 'react';
+import type { GameEvent, GameState, LoggedEvent } from '@polypoly/engine';
+import type { NetWorthSnapshot } from '@polypoly/shared';
 import { socket } from '../socket.js';
 
 const MAX_EVENT_LOG = 200;
 
+interface SpectatorHandle {
+  gameState: GameState | null;
+  events: GameEvent[];
+  fetchMatchLog: () => Promise<{ log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }>;
+}
+
 /** Watches the room's broadcasts without ever joining as a player — the PC's
  *  shared board display just needs to render state, not act on it. */
-export function useSpectator(): { gameState: GameState | null; events: GameEvent[] } {
+export function useSpectator(): SpectatorHandle {
   const [gameState, setGameState] = useState<GameState | null>(null);
   const [events, setEvents] = useState<GameEvent[]>([]);
 
@@ -22,5 +29,21 @@ export function useSpectator(): { gameState: GameState | null; events: GameEvent
     };
   }, []);
 
-  return { gameState, events };
+  // Full match history is fetched on demand (opening the stats screen), not
+  // carried on every 'game:state' broadcast — that fires on every single
+  // action, and shipping a growing multi-hundred-event array with it would
+  // bloat routine play traffic for no benefit.
+  const fetchMatchLog = useCallback(() => {
+    return new Promise<{ log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }>((resolve, reject) => {
+      socket.emit('game:match-log', (result) => {
+        if (!result.ok) {
+          reject(new Error(result.reason));
+          return;
+        }
+        resolve({ log: result.log as LoggedEvent[], logComplete: result.logComplete, netWorthHistory: result.netWorthHistory });
+      });
+    });
+  }, []);
+
+  return { gameState, events, fetchMatchLog };
 }

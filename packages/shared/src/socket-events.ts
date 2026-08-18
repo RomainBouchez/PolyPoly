@@ -1,5 +1,5 @@
 import type { GameConfig } from './config.js';
-import type { PlayerId, RoomInfo } from './room.js';
+import type { NetWorthSnapshot, PlayerId, RoomInfo } from './room.js';
 
 export interface JoinPayload {
   roomCode: string;
@@ -42,6 +42,18 @@ export interface ClientToServerEvents {
    *  Chance, draw the card" chain. buildingLevel is 1, 2, 3, or 5 (hotel). */
   'admin:grant-squat': (playerId: PlayerId, buildingLevel: number, ack: (result: { ok: boolean; reason?: string }) => void) => void;
   'admin:send-to-jail': (playerId: PlayerId, ack: (result: { ok: boolean; reason?: string }) => void) => void;
+  /** Full event history for the just-ended (or in-progress) game, for the
+   *  match-stats screen. `log` is an engine `LoggedEvent[]`, kept as
+   *  `unknown` here the same way 'game:state' does — shared has no
+   *  dependency on the engine package. `netWorthHistory` needs no such
+   *  workaround — its shape is pure primitives, defined in this package. */
+  'game:match-log': (
+    ack: (
+      result:
+        | { ok: true; log: unknown[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }
+        | { ok: false; reason: string },
+    ) => void,
+  ) => void;
 }
 
 export interface ServerToClientEvents {

@@ -19,6 +19,17 @@ export interface PlayerIdentity {
 
 export type RoomPhase = 'lobby' | 'playing' | 'ended';
 
+/** Each active player's net worth at the close of one round, for the
+ *  end-of-game wealth-over-time chart. Lives here rather than in the engine
+ *  because the shape is pure primitives (a round number, a PlayerId->number
+ *  map) — no GameEvent/GameState type is needed to describe it, so it costs
+ *  nothing to give the client a precise type instead of the `unknown` the
+ *  match log itself has to fall back to. */
+export interface NetWorthSnapshot {
+  roundNumber: number;
+  values: Record<PlayerId, number>;
+}
+
 export interface RoomInfo {
   code: string;
   phase: RoomPhase;

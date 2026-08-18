@@ -16,3 +16,4 @@ export * from './trade.js';
 export * from './applyAction.js';
 export * from './legalActions.js';
 export * from './errors.js';
+export * from './matchStats.js';

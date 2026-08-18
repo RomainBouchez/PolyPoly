@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { GameAction, GameEvent, GameState } from '@polypoly/engine';
-import type { GameConfig, PlayerId, RoomInfo } from '@polypoly/shared';
+import type { GameAction, GameEvent, GameState, LoggedEvent } from '@polypoly/engine';
+import type { GameConfig, NetWorthSnapshot, PlayerId, RoomInfo } from '@polypoly/shared';
 import { socket } from '../socket.js';
 import { clearSession, loadSession, saveSession } from '../session.js';
 
@@ -20,6 +20,7 @@ export interface RoomHandle {
   updateConfig: (patch: Partial<GameConfig>) => void;
   startGame: () => void;
   sendAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
+  fetchMatchLog: () => Promise<{ log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }>;
 }
 
 export function useRoom(): RoomHandle {
@@ -127,6 +128,22 @@ export function useRoom(): RoomHandle {
     });
   }, []);
 
+  // Full match history is fetched on demand (opening the stats screen), not
+  // carried on every 'game:state' broadcast — that fires on every single
+  // action, and shipping a growing multi-hundred-event array with it would
+  // bloat routine play traffic for no benefit.
+  const fetchMatchLog = useCallback(() => {
+    return new Promise<{ log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }>((resolve, reject) => {
+      socket.emit('game:match-log', (result) => {
+        if (!result.ok) {
+          reject(new Error(result.reason));
+          return;
+        }
+        resolve({ log: result.log as LoggedEvent[], logComplete: result.logComplete, netWorthHistory: result.netWorthHistory });
+      });
+    });
+  }, []);
+
   return {
     connected,
     joined: myPlayerId !== null,
@@ -141,5 +158,6 @@ export function useRoom(): RoomHandle {
     updateConfig,
     startGame,
     sendAction,
+    fetchMatchLog,
   };
 }

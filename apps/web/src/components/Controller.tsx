@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion, MotionConfig } from 'motion/react';
-import { BookOpen, Gamepad2, Map } from 'lucide-react';
+import { BookOpen, Gamepad2, Map, Trophy } from 'lucide-react';
 import { netWorth } from '@polypoly/engine';
-import type { GameAction, GameEvent, GameState, PlayerId, TradeOffer } from '@polypoly/engine';
+import type { GameAction, GameEvent, GameState, LoggedEvent, PlayerId, TradeOffer } from '@polypoly/engine';
+import type { NetWorthSnapshot } from '@polypoly/shared';
 import { BoardGrid } from './board/BoardGrid.js';
 import { tileIcon } from './board/BoardTile.js';
 import { GROUP_COLORS, GROUP_FLAG_SVG } from './board/tileLayout.js';
@@ -14,6 +15,7 @@ import { CashValue } from './game/CashValue.js';
 import { HealthBar, PlayersPanel } from './game/PlayersPanel.js';
 import { GameRulesModal } from './game/GameRulesModal.js';
 import { IncomingTradeModal } from './game/IncomingTradeModal.js';
+import { MatchStatsModal } from './game/MatchStatsModal.js';
 import { PendingActionStrip } from './game/PendingActionBanner.js';
 import { RoundCounter } from './game/RoundCounter.js';
 import { SquatModal } from './game/SquatModal.js';
@@ -27,6 +29,10 @@ interface ControllerProps {
   onAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
 }
 
+interface ControllerRootProps extends ControllerProps {
+  fetchMatchLog: () => Promise<{ log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] }>;
+}
+
 type Tab = 'play' | 'board';
 
 const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
@@ -37,10 +43,11 @@ const TABS: { id: Tab; label: string; icon: typeof Gamepad2 }[] = [
 /** The phone view. In home mode (a PC is running BoardDisplay) players stay
  *  on the "Play" tab. Without a PC — travel mode — the "Board" tab gives the
  *  same full board right here, so the whole game still works on phones alone. */
-export function Controller({ state, events, myPlayerId, onAction }: ControllerProps) {
+export function Controller({ state, events, myPlayerId, onAction, fetchMatchLog }: ControllerRootProps) {
   const [tab, setTab] = useState<Tab>('play');
   const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
+  const [statsOpen, setStatsOpen] = useState(false);
   // Fired from the arrival *event*, not from the presence of a pending trade:
   // keying off state meant every remount — a reconnect, a refresh — re-popped
   // an offer that had simply not been answered yet. `events` only ever holds
@@ -58,9 +65,14 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
     seenEventCount.current = events.length;
     const mine = fresh.filter((e) => e.type === 'trade-proposed' && e.toId === myPlayerId);
     const latest = mine[mine.length - 1];
-    if (!latest || latest.type !== 'trade-proposed') return;
-    const offer = state.pendingTrades.find((t) => t.id === latest.tradeId);
-    if (offer) setAnnounced(offer);
+    if (latest && latest.type === 'trade-proposed') {
+      const offer = state.pendingTrades.find((t) => t.id === latest.tradeId);
+      if (offer) setAnnounced(offer);
+    }
+    // Pop the summary once, for whoever's device was open at the moment the
+    // game actually ended — same "fresh events since mount" reasoning as the
+    // trade announcement above, so a reconnect never re-triggers it.
+    if (fresh.some((e) => e.type === 'game-over')) setStatsOpen(true);
   }, [events, state, myPlayerId]);
 
   // Drop it the moment it stops being live — accepted, declined or countered
@@ -82,7 +94,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
               >
-                <PlayTab state={state} events={events} myPlayerId={myPlayerId} onAction={onAction} />
+                <PlayTab state={state} events={events} myPlayerId={myPlayerId} onAction={onAction} onOpenStats={() => setStatsOpen(true)} />
               </motion.div>
             ) : (
               <motion.div
@@ -93,7 +105,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
                 exit={{ opacity: 0 }}
                 transition={{ duration: 0.15, ease: 'easeOut' }}
               >
-                <BoardTab state={state} events={events} myPlayerId={myPlayerId} onAction={onAction} />
+                <BoardTab state={state} events={events} myPlayerId={myPlayerId} onAction={onAction} onOpenStats={() => setStatsOpen(true)} />
               </motion.div>
             )}
           </AnimatePresence>
@@ -128,7 +140,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
         {/* Sits clear of the tab bar, and above the board without covering
             the tiles a player is reading. Hidden while any sheet is open so it
             does not float over its own modal. */}
-        {!rulesOpen && !negotiating && !incomingTrade && (
+        {!rulesOpen && !statsOpen && !negotiating && !incomingTrade && (
           <motion.button
             onClick={() => setRulesOpen(true)}
             aria-label="Game rules"
@@ -141,8 +153,30 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
           </motion.button>
         )}
 
+        {/* Stacked above the rules button, and only once there's a match to
+            summarize — the auto-popup already showed it once, this is just
+            how to get back to it after dismissing. */}
+        {state.phase.type === 'game-over' && !rulesOpen && !statsOpen && !negotiating && !incomingTrade && (
+          <motion.button
+            onClick={() => setStatsOpen(true)}
+            aria-label="Match stats"
+            whileTap={{ scale: 0.92 }}
+            transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+            className="fixed right-4 z-30 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600/90 text-white shadow-lg shadow-black/40 ring-1 ring-white/15 backdrop-blur active:bg-emerald-500"
+            style={{ bottom: 'calc(env(safe-area-inset-bottom) + 8.5rem)' }}
+          >
+            <Trophy size={20} />
+          </motion.button>
+        )}
+
         <AnimatePresence>
           {rulesOpen && <GameRulesModal state={state} onClose={() => setRulesOpen(false)} />}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {statsOpen && (
+            <MatchStatsModal state={state} myPlayerId={myPlayerId} fetchMatchLog={fetchMatchLog} onClose={() => setStatsOpen(false)} />
+          )}
         </AnimatePresence>
 
         <AnimatePresence>
@@ -183,7 +217,7 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
   );
 }
 
-function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
+function PlayTab({ state, events, myPlayerId, onAction, onOpenStats }: ControllerProps & { onOpenStats: () => void }) {
   const [selectedTile, setSelectedTile] = useState<number | null>(null);
   const me = state.players[myPlayerId]!;
   const currentPlayer = state.players[state.turnOrder[state.currentPlayerIndex]!];
@@ -235,7 +269,7 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
       </AnimatePresence>
 
       <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900 p-3 shadow-lg shadow-black/20">
-        <ActionPanel state={state} myPlayerId={myPlayerId} onAction={onAction} />
+        <ActionPanel state={state} myPlayerId={myPlayerId} onAction={onAction} onOpenStats={onOpenStats} />
       </div>
 
       <div className="mt-3 shrink-0">
@@ -314,12 +348,12 @@ function PlayTab({ state, events, myPlayerId, onAction }: ControllerProps) {
   );
 }
 
-function BoardTab({ state, events, myPlayerId, onAction }: ControllerProps) {
+function BoardTab({ state, events, myPlayerId, onAction, onOpenStats }: ControllerProps & { onOpenStats: () => void }) {
   return (
     <div className="flex h-full flex-col gap-3 overflow-y-auto p-3">
       <div className="flex items-center justify-center">
         <BoardGrid state={state} events={events} myPlayerId={myPlayerId} onAction={onAction}>
-          <ActionPanel state={state} myPlayerId={myPlayerId} onAction={onAction} />
+          <ActionPanel state={state} myPlayerId={myPlayerId} onAction={onAction} onOpenStats={onOpenStats} />
         </BoardGrid>
       </div>
       <PlayersPanel state={state} />

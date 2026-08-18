@@ -6,10 +6,12 @@ import {
   getLegalActions,
   IllegalActionError,
   jailTileIndex,
+  netWorth,
   SQUAT_CARD_ID,
   type GameAction,
   type GameEvent,
   type GameState,
+  type LoggedEvent,
   type NewPlayerInfo,
   type Rng,
 } from '@polypoly/engine';
@@ -17,6 +19,7 @@ import {
   COLOR_PALETTE,
   DEFAULT_GAME_CONFIG,
   type GameConfig,
+  type NetWorthSnapshot,
   type PlayerId,
   type PlayerIdentity,
   type RoomInfo,
@@ -25,6 +28,11 @@ import {
 
 /** Every GameAction except the server-only time-limit tick, which has no playerId. */
 export type PlayerGameAction = Exclude<GameAction, { type: 'check-time-limit' }>;
+
+/** Safety-valve only, not a routine limit — a real game runs on the order of
+ *  1,500-2,500 events even in an extreme multi-hour session; this guards
+ *  against a pathological loop, not anything a normal game approaches. */
+const MATCH_LOG_CAP = 10_000;
 
 interface SeatedPlayer {
   identity: PlayerIdentity;
@@ -51,6 +59,34 @@ export class Room {
   gameState: GameState | null = null;
   private rng: Rng | null = null;
   private players = new Map<PlayerId, SeatedPlayer>();
+  // Temporary, in-memory record of this game's events, for the end-of-game
+  // stats screen — reset on every start() and never persisted, since it only
+  // needs to survive one game, not a server restart. `matchLogTruncated`
+  // flips once the safety-valve cap is hit, so the stats screen can honestly
+  // flag incomplete data rather than silently under-report.
+  private matchLog: LoggedEvent[] = [];
+  private matchLogTruncated = false;
+  // One entry per completed round — net worth doesn't appear on any single
+  // event (it's cash plus property plus houses, all moving independently), so
+  // it can't be derived from matchLog after the fact the way everything else
+  // in the stats screen is. This has to be captured as it happens instead.
+  private netWorthHistory: NetWorthSnapshot[] = [];
+  private lastSnapshottedRound = 1;
+
+  /** Tags each event with the round/turn number of the state it produced
+   *  (read after the state has already advanced), so a future time-based
+   *  stat is answerable without ever touching this recording code again. */
+  private recordEvents(events: GameEvent[]): void {
+    if (!this.gameState) return;
+    const { roundNumber, turnNumber } = this.gameState;
+    for (const event of events) {
+      if (this.matchLog.length >= MATCH_LOG_CAP) {
+        this.matchLogTruncated = true;
+        return;
+      }
+      this.matchLog.push({ event, roundNumber, turnNumber });
+    }
+  }
 
   toRoomInfo(): RoomInfo {
     return {
@@ -210,6 +246,17 @@ export class Room {
     this.gameState = createInitialState(this.config, playerInfos, this.rng);
     this.phase = 'playing';
     this.startedAt = Date.now();
+    this.matchLog = [];
+    this.matchLogTruncated = false;
+    this.lastSnapshottedRound = 1;
+    // Round 1's baseline — everyone at their starting cash, nothing owned yet
+    // — so the wealth chart has a real first point rather than starting blank
+    // until the first round actually finishes.
+    this.netWorthHistory = [{ roundNumber: 1, values: this.snapshotNetWorth(this.gameState) }];
+  }
+
+  private snapshotNetWorth(state: GameState): Record<PlayerId, number> {
+    return Object.fromEntries(state.turnOrder.map((id) => [id, netWorth(state, id)]));
   }
 
   private requireHost(playerId: PlayerId): void {
@@ -269,7 +316,9 @@ export class Room {
     const next = structuredClone(this.gameState);
     next.heldSquatCards.push({ cardId: SQUAT_CARD_ID, deck: 'travel', playerId, buildingLevel });
     this.gameState = next;
-    return [{ type: 'squat-granted', playerId, buildingLevel }];
+    const events: GameEvent[] = [{ type: 'squat-granted', playerId, buildingLevel }];
+    this.recordEvents(events);
+    return events;
   }
 
   /** Testing/dev helper for the host — jails a player outright, which is the
@@ -293,7 +342,9 @@ export class Room {
       next.phase = { type: 'awaiting-jail-decision', playerId };
     }
     this.gameState = next;
-    return [{ type: 'sent-to-jail', playerId, reason: 'card' }];
+    const events: GameEvent[] = [{ type: 'sent-to-jail', playerId, reason: 'card' }];
+    this.recordEvents(events);
+    return events;
   }
 
   /** Server-driven, not tied to any player — checked on a timer for time-limit games. */
@@ -306,12 +357,36 @@ export class Room {
     const { state, events } = applyAction(this.gameState!, action, this.rng!);
     this.gameState = state;
     if (state.phase.type === 'game-over') this.phase = 'ended';
+    this.recordEvents(events);
+    // A snapshot per completed round, not per action — an action only ever
+    // advances the round number by at most one, so this fires at most once
+    // per call.
+    if (state.roundNumber !== this.lastSnapshottedRound) {
+      this.lastSnapshottedRound = state.roundNumber;
+      this.netWorthHistory.push({ roundNumber: state.roundNumber, values: this.snapshotNetWorth(state) });
+    } else if (state.phase.type === 'game-over') {
+      // A cascade of bankruptcies can end the game mid-round, before the
+      // round boundary above ever fires — without this the chart's last
+      // point would lag one round behind the standings shown next to it.
+      const values = this.snapshotNetWorth(state);
+      const lastSnapshot = this.netWorthHistory[this.netWorthHistory.length - 1];
+      if (lastSnapshot && lastSnapshot.roundNumber === state.roundNumber) lastSnapshot.values = values;
+      else this.netWorthHistory.push({ roundNumber: state.roundNumber, values });
+    }
     return { events };
   }
 
   legalActionsFor(playerId: PlayerId): GameAction[] {
     if (!this.gameState) return [];
     return getLegalActions(this.gameState, playerId);
+  }
+
+  /** For the end-of-game stats screen. `logComplete` is false once the
+   *  safety-valve cap has been hit at any point this game — the caller
+   *  should present figures that depend on full coverage (e.g. total turns
+   *  served in jail) as a caveated estimate rather than an exact count. */
+  getMatchLog(): { log: LoggedEvent[]; logComplete: boolean; netWorthHistory: NetWorthSnapshot[] } {
+    return { log: this.matchLog, logComplete: !this.matchLogTruncated, netWorthHistory: this.netWorthHistory };
   }
 
   toSnapshot(): RoomSnapshot {

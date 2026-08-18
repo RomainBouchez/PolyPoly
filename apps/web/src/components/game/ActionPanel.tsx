@@ -7,6 +7,7 @@ interface ActionPanelProps {
   state: GameState;
   myPlayerId: PlayerId;
   onAction: (action: GameAction) => Promise<{ ok: boolean; reason?: string }>;
+  onOpenStats?: () => void;
 }
 
 const TURN_ACTION_TYPES = new Set<GameAction['type']>([
@@ -23,7 +24,7 @@ const TURN_ACTION_TYPES = new Set<GameAction['type']>([
   'take-hostage',
 ]);
 
-export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
+export function ActionPanel({ state, myPlayerId, onAction, onOpenStats }: ActionPanelProps) {
   const [busy, setBusy] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [bidAmount, setBidAmount] = useState<number | null>(null);
@@ -47,6 +48,16 @@ export function ActionPanel({ state, myPlayerId, onAction }: ActionPanelProps) {
     return (
       <div className="text-center">
         <p className="text-lg font-semibold text-emerald-400">🏆 {winner?.name} wins!</p>
+        {onOpenStats && (
+          <motion.button
+            onClick={onOpenStats}
+            whileTap={{ scale: 0.97 }}
+            transition={{ type: 'spring', bounce: 0, visualDuration: 0.2 }}
+            className="mt-2.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-sm font-medium text-emerald-300 ring-1 ring-inset ring-emerald-500/30 active:bg-emerald-500/25"
+          >
+            📊 View match stats
+          </motion.button>
+        )}
       </div>
     );
   }

@@ -157,6 +157,15 @@ io.on('connection', (socket: Socket<ClientToServerEvents, ServerToClientEvents>)
     }
   });
 
+  socket.on('game:match-log', (ack) => {
+    if (room.phase !== 'playing' && room.phase !== 'ended') {
+      ack({ ok: false, reason: 'No game in progress' });
+      return;
+    }
+    const { log, logComplete, netWorthHistory } = room.getMatchLog();
+    ack({ ok: true, log, logComplete, netWorthHistory });
+  });
+
   socket.on('disconnect', () => {
     const playerId = room.handleDisconnect(socket.id);
     if (playerId) broadcastRoomUpdate();

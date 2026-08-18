@@ -1,7 +1,7 @@
 import { AnimatePresence, motion } from 'motion/react';
 import type { ReactNode } from 'react';
 import type { GameEvent, GameState } from '@polypoly/engine';
-import { tileIcon } from '../board/BoardTile.js';
+import { PlayerName, TileLabel } from './GameLabels.js';
 
 export function ActivityFeed({ events, state }: { events: GameEvent[]; state: GameState }) {
   const recent = [...events].reverse().slice(0, 40);
@@ -24,37 +24,6 @@ export function ActivityFeed({ events, state }: { events: GameEvent[]; state: Ga
         </AnimatePresence>
       </ul>
     </div>
-  );
-}
-
-/** Player name in their token color, matching the dot convention in PlayersPanel. */
-function PlayerName({ state, playerId }: { state: GameState; playerId: string }) {
-  const p = state.players[playerId];
-  if (!p) return <span>{playerId}</span>;
-  return (
-    <span className="font-semibold" style={{ color: p.color }}>
-      {p.name}
-    </span>
-  );
-}
-
-/** Tile name with its board emoji, so a city reads the same as it does on the board. */
-function TileLabel({ state, tileIndex }: { state: GameState; tileIndex: number }) {
-  const tile = state.board.tiles[tileIndex];
-  if (!tile) return <span>tile {tileIndex}</span>;
-  const label =
-    tile.kind === 'go' || tile.kind === 'jail' || tile.kind === 'vacation' || tile.kind === 'go-to-jail' || tile.kind === 'card'
-      ? tile.kind === 'card'
-        ? tile.deck === 'travel'
-          ? 'Travel'
-          : 'Customs'
-        : tile.kind
-      : tile.name;
-  return (
-    <span className="inline-flex items-center gap-1">
-      <span>{tileIcon(tile)}</span>
-      <span>{label}</span>
-    </span>
   );
 }
 

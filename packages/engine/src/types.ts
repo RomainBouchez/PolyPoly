@@ -217,7 +217,22 @@ export type GameEvent =
   | { type: 'auction-passed'; playerId: PlayerId }
   | { type: 'auction-won'; playerId: PlayerId; tileIndex: number; amount: number }
   | { type: 'auction-no-sale'; tileIndex: number }
-  | { type: 'trade-proposed'; tradeId: number; fromId: PlayerId; toId: PlayerId }
+  // Carries the full offer, not just who/whom: match-stats needs to know what
+  // was actually exchanged once the trade is later accepted, and this is the
+  // only event that ever holds the offer's contents — TradeOffer objects
+  // vanish from state the moment a trade resolves.
+  | {
+      type: 'trade-proposed';
+      tradeId: number;
+      fromId: PlayerId;
+      toId: PlayerId;
+      fromCash: number;
+      toCash: number;
+      fromProperties: number[];
+      toProperties: number[];
+      fromJailCards: number;
+      toJailCards: number;
+    }
   | { type: 'trade-accepted'; tradeId: number }
   | { type: 'trade-declined'; tradeId: number }
   | { type: 'trade-cancelled'; tradeId: number }
@@ -241,6 +256,18 @@ export type GameEvent =
   | { type: 'emergency-fine'; playerId: PlayerId; amount: number }
   | { type: 'hostage-taken'; playerId: PlayerId; tileIndex: number; ownerId: PlayerId }
   | { type: 'hostage-released'; playerId: PlayerId; tileIndex: number };
+
+/** A GameEvent tagged with when it happened in game-time. An event on its own
+ *  preserves relative order but not *which* round/turn produced it — tagging
+ *  at the point of recording (see Room.matchLog on the server) keeps every
+ *  future time-based question (wealth over time, fastest bankruptcy by round)
+ *  answerable later as a pure computation, without ever touching the
+ *  server/socket layer again. */
+export interface LoggedEvent {
+  event: GameEvent;
+  roundNumber: number;
+  turnNumber: number;
+}
 
 export type PropertyGroupTotals = Partial<Record<PropertyGroup, number>>;
 

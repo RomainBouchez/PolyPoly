@@ -124,7 +124,18 @@ export function applyAction(
         });
       }
       draft.pendingTrades.push(trade);
-      events.push({ type: 'trade-proposed', tradeId: trade.id, fromId: trade.fromId, toId: trade.toId });
+      events.push({
+        type: 'trade-proposed',
+        tradeId: trade.id,
+        fromId: trade.fromId,
+        toId: trade.toId,
+        fromCash: trade.fromCash,
+        toCash: trade.toCash,
+        fromProperties: trade.fromProperties,
+        toProperties: trade.toProperties,
+        fromJailCards: trade.fromJailCards,
+        toJailCards: trade.toJailCards,
+      });
       break;
     }
     case 'respond-trade': {

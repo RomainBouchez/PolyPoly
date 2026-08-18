@@ -31,6 +31,7 @@ export default function App() {
     updateConfig,
     startGame,
     sendAction,
+    fetchMatchLog,
   } = useRoom();
 
   if (!joined || !room || !config || !myPlayerId) {
@@ -67,7 +68,7 @@ export default function App() {
       {/* A status line rather than a wall: the socket rebinds the seat on its
           own, so the board stays usable and the strip clears itself. */}
       <ConnectionStrip connected={connected} />
-      <Controller state={gameState} events={events} myPlayerId={myPlayerId} onAction={sendAction} />
+      <Controller state={gameState} events={events} myPlayerId={myPlayerId} onAction={sendAction} fetchMatchLog={fetchMatchLog} />
     </>
   );
 }
