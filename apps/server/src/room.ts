@@ -6,6 +6,7 @@ import {
   getLegalActions,
   IllegalActionError,
   jailTileIndex,
+  shuffle,
   SQUAT_CARD_ID,
   type GameAction,
   type GameEvent,
@@ -207,7 +208,11 @@ export class Room {
     }));
     this.seed = Math.floor(Math.random() * 2 ** 31);
     this.rng = createRng(this.seed);
-    this.gameState = createInitialState(this.config, playerInfos, this.rng);
+    // Seating/join order shouldn't decide who goes first — shuffle here (not
+    // inside the engine) so createInitialState stays order-preserving and
+    // deterministic for tests, while real games still get a random turn order.
+    const turnOrder = shuffle(playerInfos, this.rng);
+    this.gameState = createInitialState(this.config, turnOrder, this.rng);
     this.phase = 'playing';
     this.startedAt = Date.now();
   }
