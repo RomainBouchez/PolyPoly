@@ -41,27 +41,29 @@ export function Controller({ state, events, myPlayerId, onAction }: ControllerPr
   const [tab, setTab] = useState<Tab>('play');
   const [negotiating, setNegotiating] = useState<TradeOffer | null>(null);
   const [rulesOpen, setRulesOpen] = useState(false);
-  // Fired from the arrival *event*, not from the presence of a pending trade:
-  // keying off state meant every remount — a reconnect, a refresh — re-popped
-  // an offer that had simply not been answered yet. `events` only ever holds
-  // batches received since this mount, so an offer announces itself once, when
-  // it is actually sent, and afterwards lives in the Trades tab.
+  // Fired from the arrival of a *new* pending trade, not from its mere
+  // presence: keying off raw presence meant every remount — a reconnect, a
+  // refresh — re-popped an offer that had simply not been answered yet.
+  // This used to diff against the accumulated `events` log instead, but that
+  // log is capped (see MAX_EVENT_LOG in useRoom) and once a long game fills
+  // it, its length stops growing — so the length-based diff silently stopped
+  // seeing new offers for the rest of the game. `state.pendingTrades` is
+  // never truncated, so diffing trade ids against what was already seen at
+  // mount stays correct for the whole game.
   const [announced, setAnnounced] = useState<TradeOffer | null>(null);
-  const seenEventCount = useRef(events.length);
+  const seenTradeIds = useRef<Set<TradeOffer['id']> | null>(null);
+  if (seenTradeIds.current === null) {
+    seenTradeIds.current = new Set(state.pendingTrades.map((t) => t.id));
+  }
 
   useEffect(() => {
-    if (events.length <= seenEventCount.current) {
-      seenEventCount.current = events.length;
-      return;
-    }
-    const fresh = events.slice(seenEventCount.current);
-    seenEventCount.current = events.length;
-    const mine = fresh.filter((e) => e.type === 'trade-proposed' && e.toId === myPlayerId);
+    const seen = seenTradeIds.current!;
+    const fresh = state.pendingTrades.filter((t) => !seen.has(t.id));
+    fresh.forEach((t) => seen.add(t.id));
+    const mine = fresh.filter((t) => t.toId === myPlayerId);
     const latest = mine[mine.length - 1];
-    if (!latest || latest.type !== 'trade-proposed') return;
-    const offer = state.pendingTrades.find((t) => t.id === latest.tradeId);
-    if (offer) setAnnounced(offer);
-  }, [events, state, myPlayerId]);
+    if (latest) setAnnounced(latest);
+  }, [state.pendingTrades, myPlayerId]);
 
   // Drop it the moment it stops being live — accepted, declined or countered
   // by someone else while the sheet sat open.
