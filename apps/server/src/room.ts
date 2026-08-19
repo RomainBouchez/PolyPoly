@@ -7,6 +7,7 @@ import {
   IllegalActionError,
   jailTileIndex,
   netWorth,
+  shuffle,
   SQUAT_CARD_ID,
   type GameAction,
   type GameEvent,
@@ -236,13 +237,16 @@ export class Room {
     if (this.phase !== 'lobby') throw new IllegalActionError('Game already started');
     if (this.players.size < 2) throw new IllegalActionError('Need at least 2 players to start');
 
-    const playerInfos: NewPlayerInfo[] = [...this.players.values()].map((p) => ({
+    const joinOrder: NewPlayerInfo[] = [...this.players.values()].map((p) => ({
       id: p.identity.id,
       name: p.identity.name,
       color: p.identity.color,
     }));
     this.seed = Math.floor(Math.random() * 2 ** 31);
     this.rng = createRng(this.seed);
+    // Who goes first is randomised, not lobby-join order — drawn from the same
+    // seeded rng as everything else so a replay reproduces the same order.
+    const playerInfos = shuffle(joinOrder, this.rng);
     this.gameState = createInitialState(this.config, playerInfos, this.rng);
     this.phase = 'playing';
     this.startedAt = Date.now();
